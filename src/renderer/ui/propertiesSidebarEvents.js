@@ -79,6 +79,8 @@ function bindPropertiesSidebarEventListeners(hidePropertiesSidebar, handleDelete
         });
     }
 
+    // Button color picker events are handled in buttonColorPicker.js
+
     // Auto-save inputs
     const inputsToAutoSave = [
         domElements.propCueNameInput, 

@@ -1,5 +1,6 @@
 import { formatTime } from './utils.js';
 import { uiLog } from './uiLogger.js';
+import { getContrastTextColors } from './buttonColorPresets.js';
 
 let isInitialized = false;
 let cueStore, audioController, dragDrop, uiCore; // Scoped module refs
@@ -42,6 +43,26 @@ const DUCK_TRIGGER_ICON_PATH = '../../assets/icons/DUCKING_TRIGGER.png';
 const DUCK_ACTIVE_ICON_PATH = '../../assets/icons/DUCKED.png';
 let dragOverCueId = null;
 let cueGridContainer;
+
+function applyCueButtonColor(button, buttonColor) {
+    if (buttonColor) {
+        const { primary, secondary } = getContrastTextColors(buttonColor);
+        const useDarkText = primary === '#1a1a1a';
+        button.style.setProperty('--cue-custom-bg', buttonColor);
+        button.style.setProperty('--cue-custom-fg', primary);
+        button.style.setProperty('--cue-custom-fg-secondary', secondary);
+        button.dataset.buttonColor = buttonColor;
+        button.dataset.darkText = useDarkText ? 'true' : 'false';
+        button.classList.add('has-custom-color');
+    } else {
+        button.style.removeProperty('--cue-custom-bg');
+        button.style.removeProperty('--cue-custom-fg');
+        button.style.removeProperty('--cue-custom-fg-secondary');
+        delete button.dataset.buttonColor;
+        delete button.dataset.darkText;
+        button.classList.remove('has-custom-color');
+    }
+}
 
 export function initCueGrid(cs, ac, dd, ui) {
     uiLog.info('CueGrid: Initializing...');
@@ -149,6 +170,7 @@ function renderCues() {
         button.id = `cue-btn-${cue.id}`;
         button.dataset.cueId = cue.id;
         button.dataset.cueType = cue.type || 'single';
+        applyCueButtonColor(button, cue.buttonColor);
 
         const statusIndicator = document.createElement('div');
         statusIndicator.className = 'cue-status-indicator';

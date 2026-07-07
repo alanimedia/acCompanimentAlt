@@ -303,6 +303,7 @@ async function addOrUpdateProcessedCue(cueData, workspacePath) {
     enableDucking: cueData.enableDucking !== undefined ? cueData.enableDucking : false,
     duckingLevel: cueData.duckingLevel !== undefined ? cueData.duckingLevel : 80,
     isDuckingTrigger: cueData.isDuckingTrigger !== undefined ? cueData.isDuckingTrigger : false,
+    buttonColor: cueData.buttonColor || null,
   };
 
   // Ensure playlist items have unique IDs and knownDurations if not present

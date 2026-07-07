@@ -35,6 +35,7 @@ const DEFAULT_CONFIG = {
   httpRemoteEnabled: true, // Enable/disable HTTP remote
   httpRemotePort: 3000, // Port for HTTP remote server
   recentWorkspaces: [], // Ensure recentWorkspaces is part of DEFAULT_CONFIG
+  recentButtonColors: [], // Recently used custom cue button colors (max 8)
 };
 
 // Function to explicitly set the directory for the config file.

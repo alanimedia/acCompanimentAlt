@@ -15,6 +15,7 @@ let propShufflePlaylistCheckbox, propRepeatOnePlaylistItemCheckbox, propRetrigge
 let propPlaylistPlayModeSelect;
 let propVolumeSlider, propVolumeValueDisplay;
 let propEnableDuckingCheckbox, propDuckingLevelInput, propDuckingLevelValueSpan, propIsDuckingTriggerCheckbox;
+let propButtonColorInput, propButtonColorResetBtn;
 
 /**
  * Cache all DOM elements for the properties sidebar
@@ -51,6 +52,8 @@ function cachePropertiesSidebarDOMElements() {
     propDuckingLevelInput = document.getElementById('propDuckingLevel');
     propDuckingLevelValueSpan = document.getElementById('propDuckingLevelValue');
     propIsDuckingTriggerCheckbox = document.getElementById('propIsDuckingTrigger');
+    propButtonColorInput = document.getElementById('propButtonColor');
+    propButtonColorResetBtn = document.getElementById('propButtonColorReset');
 
     // Set up volume slider display
     if (propVolumeSlider && propVolumeValueDisplay) {
@@ -94,7 +97,9 @@ function getDOMElement(elementName) {
         propEnableDuckingCheckbox,
         propDuckingLevelInput,
         propDuckingLevelValueSpan,
-        propIsDuckingTriggerCheckbox
+        propIsDuckingTriggerCheckbox,
+        propButtonColorInput,
+        propButtonColorResetBtn
     };
     
     return elements[elementName];

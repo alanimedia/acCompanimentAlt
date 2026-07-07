@@ -48,6 +48,42 @@
     border-color: var(--button-secondary-border);
 }
 
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) {
+    background-color: var(--cue-custom-bg);
+    color: var(--cue-custom-fg, var(--text-color));
+}
+
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active):hover {
+    background-color: var(--cue-custom-bg);
+    filter: brightness(1.12);
+}
+
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-button-name-container,
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-time-display-container,
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-time-current,
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-time-total,
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-in):not(.crossfade-active) .cue-time-remaining,
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-time-separator {
+    color: var(--cue-custom-fg, var(--text-color));
+}
+
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .now-playing-item,
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .playlist-info,
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .playlist-now-playing,
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .playlist-next-item-playing,
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .next-playlist-item {
+    color: var(--cue-custom-fg-secondary, var(--text-secondary-color));
+}
+
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-retrigger-icon {
+    color: var(--cue-custom-fg, var(--text-color));
+    background: color-mix(in srgb, var(--cue-custom-fg, #e0e0e0) 12%, transparent);
+}
+
+.cue-button.has-custom-color[data-dark-text="true"]:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-loop-icon.enabled {
+    filter: brightness(0);
+}
+
 .cue-status-indicator {
     position: absolute;
     top: 2px;
