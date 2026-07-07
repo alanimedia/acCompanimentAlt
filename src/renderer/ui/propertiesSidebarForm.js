@@ -11,6 +11,12 @@ import {
     validateDuckingLevel, 
     validateFadeTime 
 } from './propertiesSidebarUtils.js';
+import {
+    setButtonColorFromCue,
+    getButtonColorFormState,
+    setButtonColorUseDefault,
+    DEFAULT_CUE_BUTTON_COLOR
+} from './buttonColorPicker.js';
 
 let cueStore;
 let audioController;
@@ -119,6 +125,10 @@ function collectFormData(activePropertiesCueId, domElements, stagedPlaylistItems
         isDuckingTrigger: domElements.propIsDuckingTriggerCheckbox 
             ? domElements.propIsDuckingTriggerCheckbox.checked 
             : existingCue.isDuckingTrigger,
+        buttonColor: (() => {
+            const { useDefault, color } = getButtonColorFormState();
+            return useDefault ? null : color;
+        })(),
     };
 
     return formData;
@@ -197,6 +207,8 @@ function populateFormWithCueData(cue, domElements, setStagedPlaylistItems, rende
     if(domElements.propCueIdInput) domElements.propCueIdInput.value = cue.id;
     if(domElements.propCueNameInput) domElements.propCueNameInput.value = cue.name || '';
     if(domElements.propCueTypeSelect) domElements.propCueTypeSelect.value = cue.type || 'single_file';
+
+    setButtonColorFromCue(cue);
     
     const isPlaylist = cue.type === 'playlist';
     if(domElements.propPlaylistConfigDiv) domElements.propPlaylistConfigDiv.style.display = isPlaylist ? 'block' : 'none';
@@ -264,6 +276,10 @@ function populateFormWithCueData(cue, domElements, setStagedPlaylistItems, rende
     }
 }
 
+function setButtonColorUseDefaultFlag(useDefault) {
+    setButtonColorUseDefault(useDefault);
+}
+
 export {
     initFormManager,
     setCurrentWaveformTrim,
@@ -271,5 +287,7 @@ export {
     collectFormData,
     saveCueProperties,
     deleteCueProperties,
-    populateFormWithCueData
+    populateFormWithCueData,
+    setButtonColorUseDefaultFlag,
+    DEFAULT_CUE_BUTTON_COLOR
 };

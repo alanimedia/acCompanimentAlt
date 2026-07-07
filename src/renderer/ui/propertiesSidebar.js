@@ -24,6 +24,8 @@ import {
     deleteCueProperties,
     populateFormWithCueData
 } from './propertiesSidebarForm.js';
+import { initButtonColorPicker, refreshRecentSwatches } from './buttonColorPicker.js';
+import * as appConfigUI from './appConfigUI.js';
 import { 
     initEventHandlers, 
     bindPropertiesSidebarEventListeners,
@@ -64,6 +66,11 @@ function initPropertiesSidebar(csModule, acModule, ipcAPI, uiCoreInterfaceRef) {
     // Initialize all modules
     initFormManager(cueStore, audioController, uiCore);
     initPlaylistManager(debouncedSaveCueProperties, ipcRendererBindingsModule);
+    initButtonColorPicker(
+        debouncedSaveCueProperties,
+        () => uiCore.getCurrentAppConfig(),
+        appConfigUI.savePartialAppConfiguration
+    );
     
     // Get DOM elements for event handlers
     const domElements = {
@@ -141,6 +148,8 @@ function openPropertiesSidebar(cue) {
         propDuckingLevelValueSpan: getDOMElement('propDuckingLevelValueSpan'),
         propIsDuckingTriggerCheckbox: getDOMElement('propIsDuckingTriggerCheckbox')
     };
+
+    refreshRecentSwatches();
 
     // Populate form with cue data using the form manager
     populateFormWithCueData(

@@ -1,4 +1,99 @@
 /* Shared form group styling for sidebars */
+.sidebar-content .button-color-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sidebar-content .button-color-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+}
+
+.sidebar-content .button-color-preview {
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--button-secondary-border, #555);
+    border-radius: var(--border-radius, 4px);
+    background-color: var(--cue-default-bg, #3a3a3a);
+    flex-shrink: 0;
+    box-sizing: border-box;
+    padding: 0;
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.1s ease;
+}
+
+.sidebar-content .button-color-preview:hover {
+    border-color: rgba(255, 255, 255, 0.55);
+    transform: scale(1.05);
+}
+
+.sidebar-content .button-color-preview:focus-visible {
+    outline: 2px solid var(--button-primary-bg, #007bff);
+    outline-offset: 2px;
+}
+
+.sidebar-content .button-color-hidden-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+}
+
+.sidebar-content .button-color-header > #propButtonColorReset {
+    margin-left: auto;
+}
+
+.sidebar-content .button-color-swatches {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 6px;
+}
+
+.sidebar-content .button-color-swatch {
+    width: 100%;
+    aspect-ratio: 1;
+    min-height: 24px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: var(--border-radius, 4px);
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.sidebar-content .button-color-swatch:not(.empty) {
+    background-color: var(--swatch-color, var(--button-secondary-bg, #444));
+}
+
+.sidebar-content .button-color-swatch:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.45);
+    transform: scale(1.05);
+}
+
+.sidebar-content .button-color-swatch.selected {
+    border-color: #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+.sidebar-content .button-color-swatch.empty {
+    border: 1px dashed var(--button-secondary-border, #555);
+    background: transparent;
+    cursor: default;
+    opacity: 0.35;
+}
+
+.sidebar-content .button-color-recent-label {
+    font-size: 0.75em;
+    color: var(--text-secondary-color, #888);
+    margin-top: 2px;
+}
+
 .sidebar-content .form-group {
     margin-bottom: 10px;
 }

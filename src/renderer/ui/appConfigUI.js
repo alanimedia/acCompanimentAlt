@@ -3,6 +3,7 @@
 
 import * as ipcRendererBindingsModule from '../ipcRendererBindings.js'; // Import the module
 import { uiLog } from './uiLogger.js';
+import { normalizeRecentColors } from './buttonColorPresets.js';
 
 // let ipcRendererBindings; // REMOVE: This will now refer to the imported module alias
 
@@ -480,6 +481,7 @@ function gatherConfigFromUI() {
         autoLoadLastWorkspace: configAutoLoadLastWorkspaceCheckbox ? configAutoLoadLastWorkspaceCheckbox.checked : true,
         lastOpenedWorkspacePath: currentAppConfig.lastOpenedWorkspacePath || '', // Preserve this from loaded config, not UI
         recentWorkspaces: currentAppConfig.recentWorkspaces || [], // Preserve this from loaded config
+        recentButtonColors: currentAppConfig.recentButtonColors || [],
 
         defaultCueType: configDefaultCueTypeSelect ? configDefaultCueTypeSelect.value : 'single_file',
         defaultFadeInTime: configDefaultFadeInInput ? parseInt(configDefaultFadeInInput.value) : 0,
@@ -501,6 +503,30 @@ function gatherConfigFromUI() {
     
     uiLog.debug('AppConfigUI (gatherConfigFromUI): Gathered config:', JSON.parse(JSON.stringify(config)));
     return config;
+}
+
+async function savePartialAppConfiguration(partialSettings) {
+    if (!ipcRendererBindingsModule) {
+        uiLog.error('AppConfigUI: ipcRendererBindingsModule not available. Cannot save partial config.');
+        return { success: false };
+    }
+    try {
+        const payload = { ...partialSettings };
+        if (Array.isArray(payload.recentButtonColors)) {
+            payload.recentButtonColors = normalizeRecentColors(payload.recentButtonColors);
+        }
+        const result = await ipcRendererBindingsModule.saveAppConfig(payload);
+        if (result && result.success) {
+            currentAppConfig = { ...currentAppConfig, ...partialSettings };
+            if (result.config) {
+                currentAppConfig = { ...currentAppConfig, ...result.config };
+            }
+        }
+        return result;
+    } catch (error) {
+        uiLog.error('AppConfigUI: Error during savePartialAppConfiguration:', error);
+        return { success: false, error: error.message };
+    }
 }
 
 async function saveAppConfiguration() {
@@ -598,6 +624,7 @@ export {
     init,
     populateConfigSidebar,
     saveAppConfiguration,
+    savePartialAppConfiguration,
     forceLoadAndApplyAppConfiguration,
     getCurrentAppConfig,
     loadAudioOutputDevices,
