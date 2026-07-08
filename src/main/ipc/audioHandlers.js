@@ -173,6 +173,7 @@ function registerAudioHandlers(ipcMain, { cueManager, workspaceManager, mainWind
                     trimEndTime,
                     progressRatio,
                     fileProgressRatio,
+                    volume: typeof payload.volume === 'number' ? payload.volume : undefined,
                     buttonColor: currentCue ? (currentCue.buttonColor || null) : null,
                     ...getButtonWaveformFieldsForRemote(currentCue)
                 }

@@ -7,9 +7,6 @@ const { formatTimeMMSS, calculateEffectiveTrimmedDurationSec } = require('./util
 const logger = require('./utils/logger');
 const { getWaveformPeaksForFile, resolveAudioFilePathForCue } = require('./waveformPeaksService');
 
-let cueManagerRef;
-let mainWindowRef; // To send messages to the renderer if needed
-
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -44,9 +41,193 @@ const {
     normalizeShowButtonWaveformOverride,
     resolveEffectiveShowButtonWaveform
 } = require('./showButtonWaveformUtils');
+const {
+    mergeCuePatch,
+    sanitizeConfigPatch,
+    getRemoteConfigSnapshot,
+    reorderCuesByIds,
+    processCueDetailForRemote
+} = require('./remoteEditUtils');
 
-let configuredPort = 3000; // Default port
-let appConfigRef = null; // Reference to app config
+let cueManagerRef;
+let mainWindowRef;
+let workspaceManagerRef = null;
+let appConfigManagerRef = null;
+let configuredPort = 3000;
+let appConfigRef = null;
+
+function sendToClient(ws, message) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+    }
+}
+
+function sendActionResult(ws, action, success, error = null) {
+    sendToClient(ws, { type: 'action_result', action, success, error });
+}
+
+function broadcastConfigSnapshot() {
+    broadcastToRemotes({
+        type: 'config_snapshot',
+        payload: getRemoteConfigSnapshot(appConfigRef || {})
+    });
+}
+
+async function handleRemoteMessage(ws, message) {
+    try {
+        const parsedMessage = JSON.parse(message.toString());
+        const action = parsedMessage.action;
+
+        if (action === 'trigger_cue' && parsedMessage.cueId) {
+            const cueId = parsedMessage.cueId;
+            const now = Date.now();
+            const lastTriggerTime = recentlyTriggeredCuesByRemote.get(cueId);
+            if (lastTriggerTime && (now - lastTriggerTime < REMOTE_TRIGGER_DEBOUNCE_MS)) {
+                logger.info(`HTTP_SERVER: Ignoring duplicate trigger for cue ${cueId} (debounced)`);
+                return;
+            }
+            recentlyTriggeredCuesByRemote.set(cueId, now);
+            if (ipcSentForThisRemoteTrigger[cueId]) {
+                logger.info(`HTTP_SERVER: Ignoring duplicate IPC trigger for cue ${cueId} (already sent)`);
+                return;
+            }
+            ipcSentForThisRemoteTrigger[cueId] = now;
+            setTimeout(() => { delete ipcSentForThisRemoteTrigger[cueId]; }, 1000);
+            setTimeout(() => { recentlyTriggeredCuesByRemote.delete(cueId); }, REMOTE_TRIGGER_DEBOUNCE_MS);
+            if (mainWindowRef && mainWindowRef.webContents) {
+                mainWindowRef.webContents.send('trigger-cue-by-id-from-main', {
+                    cueId: parsedMessage.cueId,
+                    source: 'remote_http'
+                });
+            } else {
+                logger.warn('HTTP_SERVER: Cannot send trigger message - mainWindowRef or webContents not available');
+            }
+            return;
+        }
+
+        if (action === 'stop_all_cues') {
+            if (mainWindowRef && mainWindowRef.webContents) {
+                mainWindowRef.webContents.send('stop-all-audio');
+                logger.info('HTTP_SERVER: Stop all cues command sent to main window');
+            }
+            return;
+        }
+
+        if (action === 'playlist_jump_to_item' && parsedMessage.cueId !== undefined && parsedMessage.targetIndex !== undefined) {
+            if (mainWindowRef && mainWindowRef.webContents) {
+                mainWindowRef.webContents.send('playlist-jump-to-item-from-main', {
+                    cueId: parsedMessage.cueId,
+                    targetIndex: parsedMessage.targetIndex
+                });
+            }
+            return;
+        }
+
+        if (action === 'request_all_cues_for_remote') {
+            if (cueManagerRef) {
+                const processedCues = formatCuesForRemote(cueManagerRef.getCues());
+                sendToClient(ws, { type: 'all_cues', payload: processedCues });
+                sendToClient(ws, { type: 'config_snapshot', payload: getRemoteConfigSnapshot(appConfigRef || {}) });
+            }
+            return;
+        }
+
+        if (action === 'update_cue') {
+            if (!cueManagerRef || !parsedMessage.cueId) {
+                sendActionResult(ws, action, false, 'Cue manager unavailable or missing cueId');
+                return;
+            }
+            const existingCue = cueManagerRef.getCueById(parsedMessage.cueId);
+            if (!existingCue) {
+                sendActionResult(ws, action, false, 'Cue not found');
+                return;
+            }
+            const mergedCue = mergeCuePatch(existingCue, parsedMessage.patch || {});
+            await cueManagerRef.addOrUpdateProcessedCue(mergedCue);
+            if (workspaceManagerRef && typeof workspaceManagerRef.markWorkspaceAsEdited === 'function') {
+                workspaceManagerRef.markWorkspaceAsEdited();
+            }
+            sendActionResult(ws, action, true);
+            return;
+        }
+
+        if (action === 'get_cue_detail') {
+            if (!cueManagerRef || !parsedMessage.cueId) {
+                sendActionResult(ws, action, false, 'Cue manager unavailable or missing cueId');
+                return;
+            }
+            const cue = cueManagerRef.getCueById(parsedMessage.cueId);
+            if (!cue) {
+                sendActionResult(ws, action, false, 'Cue not found');
+                return;
+            }
+            sendToClient(ws, {
+                type: 'cue_detail',
+                payload: processCueDetailForRemote(cue, appConfigRef || {})
+            });
+            return;
+        }
+
+        if (action === 'delete_cue') {
+            if (!cueManagerRef || !parsedMessage.cueId) {
+                sendActionResult(ws, action, false, 'Cue manager unavailable or missing cueId');
+                return;
+            }
+            const deleted = await cueManagerRef.deleteCue(parsedMessage.cueId);
+            if (!deleted) {
+                sendActionResult(ws, action, false, 'Failed to delete cue');
+                return;
+            }
+            if (workspaceManagerRef && typeof workspaceManagerRef.markWorkspaceAsEdited === 'function') {
+                workspaceManagerRef.markWorkspaceAsEdited();
+            }
+            sendActionResult(ws, action, true);
+            return;
+        }
+
+        if (action === 'reorder_cues') {
+            if (!cueManagerRef || !Array.isArray(parsedMessage.cueIds)) {
+                sendActionResult(ws, action, false, 'Invalid reorder request');
+                return;
+            }
+            try {
+                const reordered = reorderCuesByIds(cueManagerRef.getCues(), parsedMessage.cueIds);
+                await cueManagerRef.setCues(reordered);
+                if (workspaceManagerRef && typeof workspaceManagerRef.markWorkspaceAsEdited === 'function') {
+                    workspaceManagerRef.markWorkspaceAsEdited();
+                }
+                sendActionResult(ws, action, true);
+            } catch (error) {
+                sendActionResult(ws, action, false, error.message);
+            }
+            return;
+        }
+
+        if (action === 'update_config') {
+            if (!appConfigManagerRef || typeof appConfigManagerRef.updateConfig !== 'function') {
+                sendActionResult(ws, action, false, 'Config manager unavailable');
+                return;
+            }
+            const patch = sanitizeConfigPatch(parsedMessage.patch || {});
+            if (Object.keys(patch).length === 0) {
+                sendActionResult(ws, action, false, 'No valid config fields in patch');
+                return;
+            }
+            const result = await appConfigManagerRef.updateConfig(patch);
+            if (!result || !result.saved) {
+                sendActionResult(ws, action, false, result?.error || 'Failed to save config');
+                return;
+            }
+            appConfigRef = appConfigManagerRef.getConfig();
+            broadcastConfigSnapshot();
+            sendActionResult(ws, action, true);
+            return;
+        }
+    } catch (error) {
+        logger.error('HTTP_SERVER: Error in handleRemoteMessage:', error);
+        sendActionResult(ws, 'unknown', false, error.message);
+    }
+}
 
 function processCueForRemote(cue, overrides = {}) {
     let initialTrimmedDurationValueS = 0;
@@ -110,7 +291,12 @@ function processCueForRemote(cue, overrides = {}) {
             : (cue.playlistItems && cue.playlistItems.length > 0 && cue.playlistItems[0].filePath)),
         buttonColor: cue.buttonColor || null,
         showButtonWaveform: normalizeShowButtonWaveformOverride(cue.showButtonWaveform),
-        effectiveShowButtonWaveform: resolveEffectiveShowButtonWaveform(cue, appConfigRef || {})
+        effectiveShowButtonWaveform: resolveEffectiveShowButtonWaveform(cue, appConfigRef || {}),
+        volume: cue.volume !== undefined ? cue.volume : 1,
+        fadeInTime: cue.fadeInTime || 0,
+        fadeOutTime: cue.fadeOutTime || 0,
+        loop: !!cue.loop,
+        retriggerBehavior: cue.retriggerBehavior || 'restart'
     };
 }
 
@@ -119,10 +305,12 @@ function formatCuesForRemote(cues) {
     return cues.map(cue => processCueForRemote(cue));
 }
 
-function initialize(cueMgr, mainWin, appConfig = null) {
+function initialize(cueMgr, mainWin, appConfig = null, workspaceMgr = null, appConfigMgr = null) {
     cueManagerRef = cueMgr;
     mainWindowRef = mainWin;
     appConfigRef = appConfig;
+    workspaceManagerRef = workspaceMgr;
+    appConfigManagerRef = appConfigMgr;
 
     // Use configured port if available
     if (appConfig && appConfig.httpRemotePort) {
@@ -164,6 +352,10 @@ function initialize(cueMgr, mainWin, appConfig = null) {
         }
     });
 
+    app.get('/api/config', (req, res) => {
+        res.json({ success: true, config: getRemoteConfigSnapshot(appConfigRef || {}) });
+    });
+
     wss.on('connection', (ws) => {
         logger.info('HTTP_SERVER: Remote client connected via WebSocket.');
 
@@ -175,75 +367,11 @@ function initialize(cueMgr, mainWin, appConfig = null) {
                 logger.info(`HTTP_SERVER: Initial cue data for ${cue.id} (${cue.type}): trimmed=${processedCues[index].currentItemDurationS}s, original=${processedCues[index].knownDurationS}s`);
             });
             ws.send(JSON.stringify({ type: 'all_cues', payload: processedCues }));
+            sendToClient(ws, { type: 'config_snapshot', payload: getRemoteConfigSnapshot(appConfigRef || {}) });
         }
 
         ws.on('message', (message) => {
-            // Reduced verbose logging
-            try {
-                const parsedMessage = JSON.parse(message.toString());
-
-                if (parsedMessage.action === 'trigger_cue' && parsedMessage.cueId) {
-                    const cueId = parsedMessage.cueId;
-                    const now = Date.now();
-
-
-                    const lastTriggerTime = recentlyTriggeredCuesByRemote.get(cueId);
-
-                    if (lastTriggerTime && (now - lastTriggerTime < REMOTE_TRIGGER_DEBOUNCE_MS)) {
-                        logger.info(`HTTP_SERVER: Ignoring duplicate trigger for cue ${cueId} (debounced)`);
-                        return;
-                    }
-
-                    recentlyTriggeredCuesByRemote.set(cueId, now);
-
-                    // New Guard: Ensure IPC for this specific trigger event is sent only once
-                    if (ipcSentForThisRemoteTrigger[cueId]) {
-                        logger.info(`HTTP_SERVER: Ignoring duplicate IPC trigger for cue ${cueId} (already sent)`);
-                        // We still want the recentlyTriggeredCuesByRemote timeout to clear normally for the *next* distinct message.
-                        // So, we just return from this execution path for THIS message.
-                        return;
-                    }
-                    ipcSentForThisRemoteTrigger[cueId] = now;
-
-
-                    // Clear the per-trigger IPC lock after a safe interval
-                    setTimeout(() => {
-                        delete ipcSentForThisRemoteTrigger[cueId];
-                    }, 1000); // 1 second, well after any potential duplicate processing of the same event
-
-                    // Original timeout for inter-message debounce
-                    setTimeout(() => {
-                        recentlyTriggeredCuesByRemote.delete(cueId);
-                    }, REMOTE_TRIGGER_DEBOUNCE_MS);
-
-                    if (mainWindowRef && mainWindowRef.webContents) {
-                        const payload = {
-                            cueId: parsedMessage.cueId,
-                            source: 'remote_http'
-                        };
-                        mainWindowRef.webContents.send('trigger-cue-by-id-from-main', payload);
-
-                    } else {
-                        logger.warn('HTTP_SERVER: Cannot send trigger message - mainWindowRef or webContents not available');
-                    }
-                } else if (parsedMessage.action === 'stop_all_cues') {
-                    if (mainWindowRef && mainWindowRef.webContents) {
-                        mainWindowRef.webContents.send('stop-all-audio');
-                        logger.info('HTTP_SERVER: Stop all cues command sent to main window');
-                    } else {
-                        logger.warn('HTTP_SERVER: Cannot send stop all command - mainWindowRef or webContents not available');
-                    }
-                } else if (parsedMessage.action === 'playlist_jump_to_item' && parsedMessage.cueId !== undefined && parsedMessage.targetIndex !== undefined) {
-                    if (mainWindowRef && mainWindowRef.webContents) {
-                        mainWindowRef.webContents.send('playlist-jump-to-item-from-main', { cueId: parsedMessage.cueId, targetIndex: parsedMessage.targetIndex });
-                        logger.info(`HTTP_SERVER: Playlist jump to item command sent for cue ${parsedMessage.cueId}, index ${parsedMessage.targetIndex}`);
-                    } else {
-                        logger.warn('HTTP_SERVER: Cannot send playlist jump to item command - mainWindowRef or webContents not available');
-                    }
-                }
-            } catch (error) {
-                logger.error('HTTP_SERVER_LOG: Error in ws.on("message") handler:', error);
-            }
+            handleRemoteMessage(ws, message);
         });
 
         ws.on('close', () => {
@@ -328,10 +456,11 @@ function updateConfig(newConfig) {
     const prevDefaultShowButtonWaveform = appConfigRef?.defaultShowButtonWaveform;
     appConfigRef = newConfig;
 
-    // If port changed, log a warning that restart is needed
     if (newConfig.httpRemotePort && newConfig.httpRemotePort !== configuredPort) {
         logger.info(`HTTP_SERVER: Port change detected (${configuredPort} -> ${newConfig.httpRemotePort}). Server restart required for changes to take effect.`);
     }
+
+    broadcastConfigSnapshot();
 
     if (newConfig.defaultShowButtonWaveform !== prevDefaultShowButtonWaveform && cueManagerRef) {
         const cues = cueManagerRef.getCues();

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>acCompaniment Remote</title>
     <link rel="icon" type="image/png" href="../../assets/icons/icon.png">
     <style>
@@ -15,6 +15,12 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
+            height: 100dvh;
+            min-height: -webkit-fill-available;
+            overflow: hidden;
+        }
+        html {
+            height: 100%;
             overflow: hidden;
         }
         .remote-header {
@@ -117,14 +123,15 @@
             min-height: 48px;
         }
         .cue-button-remote.has-button-waveform {
-            min-height: 120px;
+            min-height: 140px;
             padding: 8px 8px 0;
         }
         .cue-button-remote .waveform-wrap {
             flex-shrink: 0;
             width: calc(100% + 16px);
-            height: 40px;
-            margin: 0 -8px;
+            height: 52px;
+            min-height: 52px;
+            margin: 4px -8px 0;
             overflow: hidden;
             background: rgba(0, 0, 0, 0.35);
             border-top: 1px solid rgba(255, 255, 255, 0.12);
@@ -167,6 +174,56 @@
             margin-left: 4px;
             color: #bbbbbb;
         }
+        .cue-remote-wrapper {
+            display: flex;
+            align-items: stretch;
+            gap: 6px;
+            width: 100%;
+            min-height: 88px;
+        }
+        .cue-remote-wrapper .cue-button-remote {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+        .cue-audio-meter-container {
+            flex: 0 0 12px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            align-self: stretch;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+            padding: 2px;
+            box-sizing: border-box;
+            pointer-events: none;
+            opacity: 0.35;
+            transition: opacity 0.15s ease, border-color 0.15s ease;
+        }
+        .cue-audio-meter-container.cue-audio-meter-active {
+            opacity: 1;
+            border-color: rgba(76, 175, 80, 0.8);
+            background: rgba(76, 175, 80, 0.12);
+        }
+        .cue-audio-meter-bar {
+            width: 100%;
+            height: 0;
+            background: linear-gradient(180deg, #4CAF50 0%, #45a049 100%);
+            border-radius: 2px;
+            transition: height 0.12s ease;
+        }
+        .remote-waveform-lane-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .remote-waveform-lane-volume {
+            font-variant-numeric: tabular-nums;
+            color: rgba(255, 255, 255, 0.65);
+            min-width: 2.5em;
+            text-align: right;
+        }
         #stopAllButtonRemote {
             background-color: #703030; /* Dark red */
             color: white;
@@ -195,35 +252,57 @@
             display: flex;
             flex-direction: column;
             width: 100%;
-            height: 140px;
+            height: 180px;
             background-color: #2c2c2c;
             border-top: 1px solid #555;
             box-sizing: border-box;
+            padding-bottom: env(safe-area-inset-bottom, 0);
         }
         #remoteWaveformPanel.hidden {
             display: none;
         }
         #remoteWaveformResizeHandle {
             flex: 0 0 auto;
-            height: 8px;
+            min-height: 12px;
+            height: 12px;
             cursor: ns-resize;
-            background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.08));
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
-        #remoteWaveformResizeHandle:hover,
+        #remoteWaveformResizeHandle:active,
         body.remote-waveform-resizing #remoteWaveformResizeHandle {
-            background: linear-gradient(to bottom, transparent, rgba(124, 58, 237, 0.35));
+            background: rgba(124, 58, 237, 0.35);
+        }
+        .remote-waveform-resize-grip {
+            width: 40px;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.4);
+            pointer-events: none;
         }
         .remote-waveform-header {
             flex: 0 0 auto;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 8px;
             padding: 4px 12px;
             font-size: 0.82em;
             color: #cccccc;
             background: rgba(0, 0, 0, 0.25);
+            min-height: 36px;
+        }
+        #remoteWaveformTitle {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
         }
         #remoteWaveformTime {
             font-variant-numeric: tabular-nums;
@@ -231,7 +310,7 @@
         #remoteWaveformLanes {
             flex: 1 1 auto;
             min-height: 0;
-            overflow-y: auto;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
         }
@@ -269,7 +348,8 @@
         }
         .remote-waveform-lane-canvas-wrap {
             flex: 1 1 auto;
-            min-height: 44px;
+            min-height: 0;
+            overflow: hidden;
             background: rgba(0, 0, 0, 0.35);
         }
         .remote-waveform-lane-canvas {
@@ -281,6 +361,459 @@
             cursor: ns-resize;
             user-select: none;
         }
+
+        /* Mode toggle */
+        .remote-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .remote-header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .mode-toggle {
+            display: flex;
+            border: 2px solid #555;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #1a1a1a;
+        }
+        .mode-btn {
+            border: none;
+            background: transparent;
+            color: #aaa;
+            padding: 8px 16px;
+            font-size: 0.85em;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+        .mode-btn.mode-btn-active-playback {
+            background: #228b22;
+            color: #fff;
+        }
+        .mode-btn.mode-btn-active-edit {
+            background: #d97706;
+            color: #fff;
+        }
+        .header-icon-btn {
+            background: #3a3a3a;
+            border: 1px solid #666;
+            color: #e0e0e0;
+            border-radius: 6px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+        }
+        .header-icon-btn:hover {
+            background: #4a4a4a;
+        }
+        .edit-mode-banner {
+            background: linear-gradient(90deg, #b45309, #d97706);
+            color: #fff;
+            text-align: center;
+            padding: 8px 12px;
+            font-size: 0.9em;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        body.remote-edit-mode {
+            border-top: 3px solid #d97706;
+        }
+        body.remote-edit-mode #remoteMain {
+            background: rgba(217, 119, 6, 0.06);
+        }
+        body.remote-edit-mode #cueGridRemote {
+            border: 2px dashed rgba(217, 119, 6, 0.45);
+            border-radius: 8px;
+            margin: 8px auto;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        }
+        .hidden { display: none !important; }
+
+        /* Edit cue cards */
+        .cue-edit-card {
+            background: #2f2f2f;
+            border: 2px solid #666;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            cursor: default;
+            box-sizing: border-box;
+            transition: box-shadow 0.15s, transform 0.15s;
+            touch-action: manipulation;
+            min-width: 0;
+            overflow: hidden;
+        }
+        .cue-edit-card:hover {
+            box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.5);
+        }
+        .cue-edit-card.cue-edit-selected {
+            box-shadow: 0 0 0 3px #d97706;
+        }
+        .cue-edit-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .cue-edit-drag {
+            color: rgba(255,255,255,0.75);
+            font-size: 1em;
+            user-select: none;
+            -webkit-user-select: none;
+            cursor: grab;
+            touch-action: none;
+            padding: 8px 10px;
+            min-width: 44px;
+            min-height: 44px;
+            border-radius: 6px;
+            background: rgba(0,0,0,0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .cue-edit-drag:active,
+        .cue-edit-drag.reorder-active { cursor: grabbing; background: rgba(217, 119, 6, 0.45); }
+        .cue-edit-top-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+        .cue-edit-settings-btn {
+            background: rgba(0,0,0,0.35);
+            border: 1px solid rgba(255,255,255,0.35);
+            color: #e0e0e0;
+            border-radius: 6px;
+            width: 44px;
+            height: 44px;
+            font-size: 1.15em;
+            line-height: 1;
+            cursor: pointer;
+            touch-action: manipulation;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cue-edit-settings-btn:active {
+            background: rgba(217, 119, 6, 0.5);
+        }
+        .cue-edit-reorder-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .cue-move-btn {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            color: #e0e0e0;
+            border-radius: 8px;
+            min-width: 52px;
+            min-height: 44px;
+            padding: 0 12px;
+            font-size: 1.2em;
+            line-height: 1;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .cue-move-btn:active:not(:disabled) {
+            background: rgba(217, 119, 6, 0.55);
+        }
+        .cue-move-btn:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+        .cue-edit-order-label {
+            font-size: 0.72em;
+            color: rgba(255, 255, 255, 0.65);
+            min-width: 4.5em;
+            text-align: center;
+        }
+        .cue-reorder-ghost {
+            position: fixed;
+            z-index: 850;
+            pointer-events: none;
+            opacity: 0.92;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+            transform: scale(1.03);
+            border: 2px solid #d97706;
+        }
+        body.remote-reorder-active {
+            overflow: hidden;
+            touch-action: none;
+        }
+        body.remote-reorder-active #remoteMain {
+            touch-action: none;
+        }
+        .cue-edit-color-preview {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: 2px solid rgba(255,255,255,0.35);
+            flex-shrink: 0;
+        }
+        .cue-edit-color-swatches {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .cue-color-swatch {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.25);
+            cursor: pointer;
+            padding: 0;
+        }
+        .cue-color-swatch.active {
+            outline: 2px solid #fff;
+            outline-offset: 1px;
+        }
+        .cue-edit-open-hint {
+            font-size: 0.72em;
+            opacity: 0.75;
+            text-align: center;
+        }
+        .cue-edit-name {
+            width: 100%;
+            box-sizing: border-box;
+            background: #1e1e1e;
+            border: 1px solid #555;
+            color: #e0e0e0;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 0.95em;
+        }
+        .cue-edit-volume-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            grid-template-rows: auto auto;
+            align-items: center;
+            gap: 4px 8px;
+            font-size: 0.85em;
+            width: 100%;
+            min-width: 0;
+        }
+        .cue-edit-volume-label {
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.75);
+        }
+        .cue-edit-volume-pct {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.9);
+        }
+        .cue-edit-volume-row input[type="range"] {
+            grid-column: 1 / -1;
+            width: 100%;
+            min-width: 0;
+            margin: 0;
+        }
+        .cue-prop-volume-row {
+            display: block;
+        }
+        .cue-prop-volume-row input[type="range"] {
+            width: 100%;
+            min-width: 0;
+            margin: 0;
+        }
+        #cuePropVolumeLabel {
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            font-weight: normal;
+            color: rgba(255, 255, 255, 0.75);
+            margin-left: 6px;
+        }
+        .cue-edit-type {
+            font-size: 0.75em;
+            color: #888;
+            text-transform: uppercase;
+        }
+        .remote-toast {
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            border: 1px solid #555;
+            color: #e0e0e0;
+            padding: 8px 16px;
+            border-radius: 6px;
+            z-index: 1000;
+            font-size: 0.9em;
+        }
+        .remote-toast.error { border-color: #ef4444; color: #fecaca; }
+        .remote-toast.success { border-color: #22c55e; color: #bbf7d0; }
+
+        /* Settings panel */
+        .remote-settings-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            z-index: 900;
+        }
+        .remote-settings-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: min(360px, 92vw);
+            height: 100vh;
+            background: #2a2a2a;
+            border-left: 2px solid #555;
+            z-index: 901;
+            overflow-y: auto;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        .remote-settings-panel h2 {
+            margin: 0 0 12px;
+            font-size: 1.2em;
+        }
+        .remote-settings-panel .form-group {
+            margin-bottom: 12px;
+        }
+        .remote-settings-panel label {
+            display: block;
+            font-size: 0.85em;
+            color: #bbb;
+            margin-bottom: 4px;
+        }
+        .remote-settings-panel input[type="number"],
+        .remote-settings-panel select {
+            width: 100%;
+            box-sizing: border-box;
+            background: #1e1e1e;
+            border: 1px solid #555;
+            color: #e0e0e0;
+            border-radius: 4px;
+            padding: 6px 8px;
+        }
+        .remote-settings-panel input[type="checkbox"] {
+            margin-right: 6px;
+        }
+        .remote-settings-close {
+            float: right;
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 1.4em;
+            cursor: pointer;
+        }
+        .remote-cue-properties-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: min(420px, 96vw);
+            height: 100vh;
+            background: #2a2a2a;
+            border-left: 2px solid #555;
+            z-index: 902;
+            overflow-y: auto;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        .remote-cue-properties-panel h2 {
+            margin: 0 0 4px;
+            font-size: 1.2em;
+        }
+        .remote-cue-properties-panel .cue-prop-subtitle {
+            color: #888;
+            font-size: 0.8em;
+            margin-bottom: 14px;
+        }
+        .remote-cue-properties-panel .form-group {
+            margin-bottom: 12px;
+        }
+        .remote-cue-properties-panel label {
+            display: block;
+            font-size: 0.85em;
+            color: #bbb;
+            margin-bottom: 4px;
+        }
+        .remote-cue-properties-panel input[type="text"],
+        .remote-cue-properties-panel input[type="number"],
+        .remote-cue-properties-panel select {
+            width: 100%;
+            box-sizing: border-box;
+            background: #1e1e1e;
+            border: 1px solid #555;
+            color: #e0e0e0;
+            border-radius: 4px;
+            padding: 6px 8px;
+        }
+        .remote-cue-properties-panel input[type="range"] {
+            width: calc(100% - 48px);
+            vertical-align: middle;
+        }
+        .remote-cue-properties-panel .readonly-path {
+            font-size: 0.75em;
+            color: #888;
+            word-break: break-all;
+            background: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 6px 8px;
+        }
+        .remote-cue-properties-panel .playlist-items-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 8px;
+            max-height: 120px;
+            overflow-y: auto;
+            font-size: 0.8em;
+            color: #aaa;
+        }
+        .remote-cue-properties-panel .playlist-items-list li {
+            padding: 4px 0;
+            border-bottom: 1px solid #444;
+        }
+        .remote-cue-properties-panel .color-picker-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .remote-cue-properties-panel .color-preview-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            border: 2px solid #666;
+            cursor: pointer;
+        }
+        .remote-cue-properties-panel .btn-small {
+            background: #3a3a3a;
+            border: 1px solid #666;
+            color: #e0e0e0;
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+        .remote-cue-properties-panel .btn-danger {
+            background: #7f1d1d;
+            border-color: #991b1b;
+            color: #fecaca;
+            width: 100%;
+            padding: 10px;
+            margin-top: 16px;
+        }
+        .cue-edit-card.dragging { opacity: 0.55; }
+        .cue-edit-card.drag-insert-before { box-shadow: -4px 0 0 0 #d97706; }
+        .cue-edit-card.drag-insert-after { box-shadow: 4px 0 0 0 #d97706; }
+        #cueGridRemote.drag-active { cursor: grabbing; }
     </style>
 </head>
 <body>
@@ -289,24 +822,197 @@
             <img src="../../assets/icons/icon.png" alt="acCompaniment Icon" class="remote-header-icon">
             <h1>acCompaniment</h1>
         </div>
-        <button id="stopAllButtonRemote">
-            <img src="../../assets/icons/dont panic.png" alt="Stop All" class="btn-icon-remote">
-        </button>
+        <div class="mode-toggle" role="group" aria-label="Remote mode">
+            <button type="button" id="modePlaybackBtn" class="mode-btn mode-btn-active-playback">Playback</button>
+            <button type="button" id="modeEditBtn" class="mode-btn">Edit</button>
+        </div>
+        <div class="remote-header-right">
+            <button type="button" id="settingsBtnRemote" class="header-icon-btn hidden" title="Global settings">⚙</button>
+            <button id="stopAllButtonRemote">
+                <img src="../../assets/icons/dont panic.png" alt="Stop All" class="btn-icon-remote">
+            </button>
+        </div>
     </div>
-    
-    <!-- Diagnostic section removed -->
+
+    <div id="editModeBanner" class="edit-mode-banner hidden">
+        Edit mode — ⚙ for properties. Use ◀ ▶ to reorder, or long-press ⋮⋮ and drag.
+    </div>
     
     <div id="remoteMain">
         <div id="cueGridRemote"></div>
     </div>
 
     <div id="remoteWaveformPanel" class="hidden">
-        <div id="remoteWaveformResizeHandle" title="Drag to resize"></div>
+        <div id="remoteWaveformResizeHandle" title="Drag to resize waveform panel">
+            <div class="remote-waveform-resize-grip" aria-hidden="true"></div>
+        </div>
         <div class="remote-waveform-header">
             <span id="remoteWaveformTitle">Waveform</span>
             <span id="remoteWaveformTime"></span>
         </div>
         <div id="remoteWaveformLanes"></div>
+    </div>
+
+    <div id="remoteSettingsBackdrop" class="remote-settings-backdrop hidden"></div>
+    <div id="remoteSettingsPanel" class="remote-settings-panel hidden">
+        <button type="button" id="remoteSettingsClose" class="remote-settings-close" title="Close">&times;</button>
+        <h2>Global Defaults</h2>
+        <div class="form-group">
+            <label for="cfgDefaultCueType">Default cue type</label>
+            <select id="cfgDefaultCueType">
+                <option value="single_file">Single File</option>
+                <option value="playlist">Playlist</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="cfgDefaultFadeIn">Default fade in (ms)</label>
+            <input type="number" id="cfgDefaultFadeIn" min="0" step="100">
+        </div>
+        <div class="form-group">
+            <label for="cfgDefaultFadeOut">Default fade out (ms)</label>
+            <input type="number" id="cfgDefaultFadeOut" min="0" step="100">
+        </div>
+        <div class="form-group">
+            <label><input type="checkbox" id="cfgDefaultLoop"> Default loop single cues</label>
+        </div>
+        <div class="form-group">
+            <label for="cfgDefaultRetrigger">Default retrigger behavior</label>
+            <select id="cfgDefaultRetrigger">
+                <option value="restart">Restart</option>
+                <option value="pause_resume">Pause / Resume</option>
+                <option value="stop">Stop</option>
+                <option value="fade_out_and_stop">Fade out and stop</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="cfgDefaultStopAll">Stop all behavior</label>
+            <select id="cfgDefaultStopAll">
+                <option value="stop">Stop</option>
+                <option value="fade_out_and_stop">Fade out and stop</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="cfgDefaultStopAllFade">Stop all fade out (ms)</label>
+            <input type="number" id="cfgDefaultStopAllFade" min="0" step="100">
+        </div>
+        <div class="form-group">
+            <label for="cfgCrossfadeTime">Crossfade time (ms)</label>
+            <input type="number" id="cfgCrossfadeTime" min="100" step="100">
+        </div>
+        <div class="form-group">
+            <label><input type="checkbox" id="cfgDefaultShowButtonWaveform"> Show waveform on cue buttons (default)</label>
+        </div>
+        <div class="form-group">
+            <label><input type="checkbox" id="cfgMainWaveformEnabled"> Show waveform panel below grid</label>
+        </div>
+    </div>
+
+    <div id="remoteToast" class="remote-toast hidden"></div>
+
+    <div id="remoteCuePropertiesPanel" class="remote-cue-properties-panel hidden">
+        <button type="button" id="remoteCuePropertiesClose" class="remote-settings-close" title="Close">&times;</button>
+        <h2 id="cuePropTitle">Cue Properties</h2>
+        <div id="cuePropSubtitle" class="cue-prop-subtitle"></div>
+
+        <div class="form-group">
+            <label for="cuePropName">Name</label>
+            <input type="text" id="cuePropName">
+        </div>
+        <div class="form-group">
+            <label>Type</label>
+            <input type="text" id="cuePropType" readonly>
+        </div>
+        <div class="form-group" id="cuePropFileGroup">
+            <label>Audio file</label>
+            <div id="cuePropFilePath" class="readonly-path"></div>
+        </div>
+        <div class="form-group hidden" id="cuePropPlaylistGroup">
+            <label>Playlist items</label>
+            <ul id="cuePropPlaylistItems" class="playlist-items-list"></ul>
+        </div>
+
+        <div class="form-group">
+            <label for="cuePropVolume">Volume <span id="cuePropVolumeLabel">100%</span></label>
+            <div class="cue-prop-volume-row">
+                <input type="range" id="cuePropVolume" min="0" max="100" step="1">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="cuePropFadeIn">Fade in (ms)</label>
+            <input type="number" id="cuePropFadeIn" min="0" step="50">
+        </div>
+        <div class="form-group">
+            <label for="cuePropFadeOut">Fade out (ms)</label>
+            <input type="number" id="cuePropFadeOut" min="0" step="50">
+        </div>
+        <div class="form-group">
+            <label><input type="checkbox" id="cuePropLoop"> Loop</label>
+        </div>
+        <div class="form-group">
+            <label for="cuePropRetrigger">Retrigger behavior</label>
+            <select id="cuePropRetrigger">
+                <option value="restart">Restart</option>
+                <option value="fade_out_and_stop">Fade out and stop</option>
+                <option value="stop">Stop</option>
+                <option value="toggle_pause_play">Toggle pause/play</option>
+                <option value="do_nothing">Do nothing</option>
+                <option value="play_new_instance">Play new instance</option>
+                <option value="replay_current_item">Replay current item</option>
+                <option value="play_next_item">Play next item</option>
+            </select>
+        </div>
+
+        <div class="form-group hidden" id="cuePropPlaylistOpts">
+            <label><input type="checkbox" id="cuePropShuffle"> Shuffle playlist</label>
+            <label style="margin-top:6px"><input type="checkbox" id="cuePropRepeatOne"> Repeat current item</label>
+            <label for="cuePropPlayMode" style="margin-top:8px">Advance behavior</label>
+            <select id="cuePropPlayMode">
+                <option value="continue">Continue to next item</option>
+                <option value="stop_and_cue_next">Stop after item, cue next</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Button color</label>
+            <div class="color-picker-row">
+                <button type="button" id="cuePropColorPreview" class="color-preview-btn" title="Pick custom color"></button>
+                <input type="color" id="cuePropColorInput" class="hidden" value="#3a3a3a">
+                <button type="button" id="cuePropColorDefault" class="btn-small">Default gray</button>
+            </div>
+            <div id="cuePropColorPresets" class="cue-edit-color-swatches" style="margin-top:8px"></div>
+        </div>
+
+        <div class="form-group">
+            <label for="cuePropButtonWaveform">Button waveform</label>
+            <select id="cuePropButtonWaveform">
+                <option value="default">Use app default</option>
+                <option value="show">Always show</option>
+                <option value="hide">Always hide</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="cuePropTrimStart">Trim start (sec)</label>
+            <input type="number" id="cuePropTrimStart" min="0" step="0.001">
+        </div>
+        <div class="form-group">
+            <label for="cuePropTrimEnd">Trim end (sec, 0 = none)</label>
+            <input type="number" id="cuePropTrimEnd" min="0" step="0.001">
+        </div>
+
+        <div class="form-group">
+            <label><input type="checkbox" id="cuePropDuckingTrigger"> Triggers ducking</label>
+        </div>
+        <div class="form-group">
+            <label><input type="checkbox" id="cuePropEnableDucking"> Affected by ducking</label>
+        </div>
+        <div class="form-group" id="cuePropDuckingLevelGroup">
+            <label for="cuePropDuckingLevel">Ducking level (%)</label>
+            <input type="range" id="cuePropDuckingLevel" min="0" max="100" step="1">
+            <span id="cuePropDuckingLevelLabel">80</span>
+        </div>
+
+        <button type="button" id="cuePropDeleteBtn" class="btn-danger">Delete cue</button>
     </div>
 
     <script>
@@ -323,21 +1029,40 @@
         const remoteWaveformTitle = document.getElementById('remoteWaveformTitle');
         const remoteWaveformTime = document.getElementById('remoteWaveformTime');
         const remoteWaveformResizeHandle = document.getElementById('remoteWaveformResizeHandle');
+        const modePlaybackBtn = document.getElementById('modePlaybackBtn');
+        const modeEditBtn = document.getElementById('modeEditBtn');
+        const settingsBtnRemote = document.getElementById('settingsBtnRemote');
+        const editModeBanner = document.getElementById('editModeBanner');
+        const remoteSettingsPanel = document.getElementById('remoteSettingsPanel');
+        const remoteSettingsBackdrop = document.getElementById('remoteSettingsBackdrop');
+        const remoteSettingsClose = document.getElementById('remoteSettingsClose');
+        const remoteCuePropertiesPanel = document.getElementById('remoteCuePropertiesPanel');
+        const remoteCuePropertiesClose = document.getElementById('remoteCuePropertiesClose');
+        const remoteToast = document.getElementById('remoteToast');
         let currentCues = {};
+        let activeCuePropertiesId = null;
+        let activeCueDetail = null;
+        let appConfigRemote = {};
+        let remoteMode = localStorage.getItem('remoteMode') || 'playback';
         let isTriggeringCueLocked = false;
+        let toastTimeout = null;
+        let draggedEditCueId = null;
+        let touchReorderState = null;
+        let touchReorderPressTimer = null;
+        let touchReorderGhostEl = null;
+        const TOUCH_REORDER_LONG_PRESS_MS = 320;
         const CUE_TRIGGER_LOCK_MS = 500;
         const waveformPeaksCache = new Map();
         const remoteWaveformLaneMap = new Map();
-        let remotePanelHeight = parseInt(localStorage.getItem('remoteWaveformHeight') || '140', 10);
-        const MIN_REMOTE_PANEL_HEIGHT = 72;
+        const remoteCueMeterLevels = {};
+        let remoteLanesResizeRaf = null;
+        let remotePanelHeight = parseInt(localStorage.getItem('remoteWaveformHeight') || '', 10);
+        if (!Number.isFinite(remotePanelHeight)) {
+            remotePanelHeight = ('ontouchstart' in window) ? 200 : 180;
+        }
+        const MIN_REMOTE_PANEL_HEIGHT = 100;
         const MAX_REMOTE_PANEL_HEIGHT_RATIO = 0.55;
-        const REMOTE_PANEL_HEADER = 52;
-        const REMOTE_LANE_HEADER = 18;
-        const MIN_LANE_CANVAS_HEIGHT = 44;
-        
-        // Diagnostic UI removed
 
-        // --- DEBOUNCE FUNCTION ---
         function debounce(func, delay) {
             let timeout;
             return function(...args) {
@@ -346,8 +1071,334 @@
                 timeout = setTimeout(() => func.apply(context, args), delay);
             };
         }
-        // --- END DEBOUNCE FUNCTION ---
-        
+
+        function showToast(message, type = 'success') {
+            if (!remoteToast) return;
+            remoteToast.textContent = message;
+            remoteToast.className = `remote-toast ${type}`;
+            remoteToast.classList.remove('hidden');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => remoteToast.classList.add('hidden'), 2500);
+        }
+
+        function sendRemoteAction(action, payload = {}) {
+            if (ws.readyState !== WebSocket.OPEN) {
+                showToast('Not connected', 'error');
+                return;
+            }
+            ws.send(JSON.stringify({ action, ...payload }));
+        }
+
+        const debouncedSaveCuePatch = debounce(function(cueId, patch) {
+            sendRemoteAction('update_cue', { cueId, patch });
+        }, 400);
+
+        const debouncedSaveConfigPatch = debounce(function(patch) {
+            sendRemoteAction('update_config', { patch });
+        }, 500);
+
+        function setRemoteMode(mode) {
+            remoteMode = mode === 'edit' ? 'edit' : 'playback';
+            localStorage.setItem('remoteMode', remoteMode);
+            document.body.classList.toggle('remote-edit-mode', remoteMode === 'edit');
+            if (modePlaybackBtn) {
+                modePlaybackBtn.classList.toggle('mode-btn-active-playback', remoteMode === 'playback');
+            }
+            if (modeEditBtn) {
+                modeEditBtn.classList.toggle('mode-btn-active-edit', remoteMode === 'edit');
+            }
+            if (editModeBanner) editModeBanner.classList.toggle('hidden', remoteMode !== 'edit');
+            if (settingsBtnRemote) settingsBtnRemote.classList.toggle('hidden', remoteMode !== 'edit');
+            if (stopAllButtonRemote) stopAllButtonRemote.classList.toggle('hidden', remoteMode === 'edit');
+            closeAllPanels();
+            renderAllCuesRemote(Object.values(currentCues));
+        }
+
+        function closeAllPanels() {
+            closeSettingsPanel();
+            closeCuePropertiesPanel();
+        }
+
+        function openSettingsPanel() {
+            if (remoteMode !== 'edit') return;
+            closeCuePropertiesPanel();
+            populateSettingsForm();
+            remoteSettingsPanel?.classList.remove('hidden');
+            remoteSettingsBackdrop?.classList.remove('hidden');
+        }
+
+        function closeSettingsPanel() {
+            remoteSettingsPanel?.classList.add('hidden');
+            if (!remoteCuePropertiesPanel || remoteCuePropertiesPanel.classList.contains('hidden')) {
+                remoteSettingsBackdrop?.classList.add('hidden');
+            }
+        }
+
+        function openCuePropertiesPanel(cueId) {
+            if (remoteMode !== 'edit' || !cueId) return;
+            closeSettingsPanel();
+            activeCuePropertiesId = cueId;
+            document.querySelectorAll('.cue-edit-card').forEach(card => {
+                card.classList.toggle('cue-edit-selected', card.dataset.cueId === cueId);
+            });
+            remoteCuePropertiesPanel?.classList.remove('hidden');
+            remoteSettingsBackdrop?.classList.remove('hidden');
+            document.getElementById('cuePropTitle').textContent = currentCues[cueId]?.name || 'Cue Properties';
+            sendRemoteAction('get_cue_detail', { cueId });
+        }
+
+        function closeCuePropertiesPanel() {
+            activeCuePropertiesId = null;
+            activeCueDetail = null;
+            remoteCuePropertiesPanel?.classList.add('hidden');
+            document.querySelectorAll('.cue-edit-card.cue-edit-selected').forEach(c => c.classList.remove('cue-edit-selected'));
+            if (!remoteSettingsPanel || remoteSettingsPanel.classList.contains('hidden')) {
+                remoteSettingsBackdrop?.classList.add('hidden');
+            }
+        }
+
+        function populateCuePropertiesForm(detail) {
+            if (!detail) return;
+            activeCueDetail = detail;
+            document.getElementById('cuePropTitle').textContent = detail.name || 'Cue Properties';
+            document.getElementById('cuePropSubtitle').textContent = detail.type === 'playlist' ? 'Playlist cue' : 'Single file cue';
+            document.getElementById('cuePropName').value = detail.name || '';
+            document.getElementById('cuePropType').value = detail.type === 'playlist' ? 'Playlist' : 'Single file';
+            const fileGroup = document.getElementById('cuePropFileGroup');
+            const playlistGroup = document.getElementById('cuePropPlaylistGroup');
+            const playlistOpts = document.getElementById('cuePropPlaylistOpts');
+            if (detail.type === 'playlist') {
+                fileGroup.classList.add('hidden');
+                playlistGroup.classList.remove('hidden');
+                playlistOpts.classList.remove('hidden');
+                const ul = document.getElementById('cuePropPlaylistItems');
+                ul.innerHTML = (detail.playlistItems || []).map(item =>
+                    `<li>${item.name || 'Untitled'}${item.filePath ? `<br><span style="opacity:0.7">${item.filePath}</span>` : ''}</li>`
+                ).join('') || '<li>No items</li>';
+                document.getElementById('cuePropShuffle').checked = !!detail.shuffle;
+                document.getElementById('cuePropRepeatOne').checked = !!detail.repeatOne;
+                document.getElementById('cuePropPlayMode').value = detail.playlistPlayMode || 'continue';
+            } else {
+                fileGroup.classList.remove('hidden');
+                playlistGroup.classList.add('hidden');
+                playlistOpts.classList.add('hidden');
+                document.getElementById('cuePropFilePath').textContent = detail.filePath || '(no file)';
+            }
+            const volPct = Math.round((detail.volume !== undefined ? detail.volume : 1) * 100);
+            document.getElementById('cuePropVolume').value = volPct;
+            document.getElementById('cuePropVolumeLabel').textContent = `${volPct}%`;
+            document.getElementById('cuePropFadeIn').value = detail.fadeInTime || 0;
+            document.getElementById('cuePropFadeOut').value = detail.fadeOutTime || 0;
+            document.getElementById('cuePropLoop').checked = !!detail.loop;
+            document.getElementById('cuePropRetrigger').value = detail.retriggerBehavior || 'restart';
+            document.getElementById('cuePropTrimStart').value = detail.trimStartTime || 0;
+            document.getElementById('cuePropTrimEnd').value = detail.trimEndTime || 0;
+            document.getElementById('cuePropDuckingTrigger').checked = !!detail.isDuckingTrigger;
+            document.getElementById('cuePropEnableDucking').checked = !!detail.enableDucking;
+            document.getElementById('cuePropDuckingLevel').value = detail.duckingLevel ?? 80;
+            document.getElementById('cuePropDuckingLevelLabel').textContent = String(detail.duckingLevel ?? 80);
+            document.getElementById('cuePropDuckingLevelGroup').style.display = detail.isDuckingTrigger ? 'block' : 'none';
+            const wfSel = document.getElementById('cuePropButtonWaveform');
+            if (detail.showButtonWaveform === true) wfSel.value = 'show';
+            else if (detail.showButtonWaveform === false) wfSel.value = 'hide';
+            else wfSel.value = 'default';
+            updateCuePropColorUI(detail.buttonColor);
+            renderCuePropColorPresets(detail.buttonColor);
+        }
+
+        function updateCuePropColorUI(color) {
+            const hex = normalizeHexColor(color) || DEFAULT_CUE_BUTTON_COLOR;
+            const preview = document.getElementById('cuePropColorPreview');
+            const input = document.getElementById('cuePropColorInput');
+            if (preview) preview.style.backgroundColor = hex;
+            if (input) input.value = hex;
+        }
+
+        function renderCuePropColorPresets(currentColor) {
+            const container = document.getElementById('cuePropColorPresets');
+            if (!container) return;
+            container.innerHTML = '';
+            const current = normalizeHexColor(currentColor);
+            PRESET_BUTTON_COLORS.forEach(color => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'cue-color-swatch' + (current === color ? ' active' : '');
+                btn.style.backgroundColor = color;
+                btn.title = color;
+                btn.addEventListener('click', () => {
+                    if (!activeCuePropertiesId) return;
+                    debouncedSaveCuePatch(activeCuePropertiesId, { buttonColor: color });
+                    updateCuePropColorUI(color);
+                    renderCuePropColorPresets(color);
+                    refreshEditCardColor(activeCuePropertiesId, color);
+                });
+                container.appendChild(btn);
+            });
+        }
+
+        function applyEditCardAppearance(card, cue) {
+            const hex = normalizeHexColor(cue.buttonColor) || DEFAULT_CUE_BUTTON_COLOR;
+            const { primary, secondary } = getContrastTextColors(hex);
+            card.style.backgroundColor = hex;
+            card.style.color = primary;
+            card.style.borderColor = hex === DEFAULT_CUE_BUTTON_COLOR ? '#666' : hex;
+            const preview = card.querySelector('.cue-edit-color-preview');
+            if (preview) preview.style.backgroundColor = hex;
+        }
+
+        function refreshEditCardColor(cueId, color) {
+            const card = cueGridRemote.querySelector(`.cue-edit-card[data-cue-id="${cueId}"]`);
+            if (card && currentCues[cueId]) {
+                currentCues[cueId].buttonColor = color || null;
+                applyEditCardAppearance(card, currentCues[cueId]);
+                const swatches = card.querySelectorAll('.cue-color-swatch');
+                const norm = normalizeHexColor(color);
+                swatches.forEach(s => {
+                    s.classList.toggle('active', normalizeHexColor(s.title) === norm);
+                });
+            }
+        }
+
+        function buildCardColorSwatches(container, cueId, currentColor) {
+            container.innerHTML = '';
+            const current = normalizeHexColor(currentColor);
+            PRESET_BUTTON_COLORS.forEach(color => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'cue-color-swatch' + (current === color ? ' active' : '');
+                btn.style.backgroundColor = color;
+                btn.title = color;
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    debouncedSaveCuePatch(cueId, { buttonColor: color });
+                    refreshEditCardColor(cueId, color);
+                });
+                container.appendChild(btn);
+            });
+        }
+
+        function saveCuePropPatch(patch) {
+            if (!activeCuePropertiesId) return;
+            debouncedSaveCuePatch(activeCuePropertiesId, patch);
+        }
+
+        function bindCuePropertiesFormEvents() {
+            const bind = (id, key, parser = v => v, eventName = 'change') => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener(eventName, () => {
+                    let value = el.type === 'checkbox' ? el.checked : parser(el.value);
+                    saveCuePropPatch({ [key]: value });
+                });
+            };
+            document.getElementById('cuePropName')?.addEventListener('change', (e) => {
+                saveCuePropPatch({ name: e.target.value });
+                document.getElementById('cuePropTitle').textContent = e.target.value || 'Cue Properties';
+            });
+            document.getElementById('cuePropVolume')?.addEventListener('input', (e) => {
+                document.getElementById('cuePropVolumeLabel').textContent = `${e.target.value}%`;
+            });
+            document.getElementById('cuePropVolume')?.addEventListener('change', (e) => {
+                saveCuePropPatch({ volume: parseInt(e.target.value, 10) / 100 });
+            });
+            bind('cuePropFadeIn', 'fadeInTime', v => parseInt(v, 10) || 0);
+            bind('cuePropFadeOut', 'fadeOutTime', v => parseInt(v, 10) || 0);
+            bind('cuePropLoop', 'loop');
+            bind('cuePropRetrigger', 'retriggerBehavior');
+            bind('cuePropShuffle', 'shuffle');
+            bind('cuePropRepeatOne', 'repeatOne');
+            bind('cuePropPlayMode', 'playlistPlayMode');
+            bind('cuePropTrimStart', 'trimStartTime', v => parseFloat(v) || 0);
+            bind('cuePropTrimEnd', 'trimEndTime', v => parseFloat(v) || 0);
+            bind('cuePropEnableDucking', 'enableDucking');
+            document.getElementById('cuePropDuckingTrigger')?.addEventListener('change', (e) => {
+                document.getElementById('cuePropDuckingLevelGroup').style.display = e.target.checked ? 'block' : 'none';
+                saveCuePropPatch({ isDuckingTrigger: e.target.checked });
+            });
+            document.getElementById('cuePropDuckingLevel')?.addEventListener('input', (e) => {
+                document.getElementById('cuePropDuckingLevelLabel').textContent = e.target.value;
+            });
+            document.getElementById('cuePropDuckingLevel')?.addEventListener('change', (e) => {
+                saveCuePropPatch({ duckingLevel: parseInt(e.target.value, 10) });
+            });
+            document.getElementById('cuePropButtonWaveform')?.addEventListener('change', (e) => {
+                const mode = e.target.value;
+                let val = null;
+                if (mode === 'show') val = true;
+                else if (mode === 'hide') val = false;
+                saveCuePropPatch({ showButtonWaveform: val });
+            });
+            document.getElementById('cuePropColorPreview')?.addEventListener('click', () => {
+                document.getElementById('cuePropColorInput')?.click();
+            });
+            document.getElementById('cuePropColorInput')?.addEventListener('change', (e) => {
+                saveCuePropPatch({ buttonColor: e.target.value });
+                updateCuePropColorUI(e.target.value);
+                renderCuePropColorPresets(e.target.value);
+                refreshEditCardColor(activeCuePropertiesId, e.target.value);
+            });
+            document.getElementById('cuePropColorDefault')?.addEventListener('click', () => {
+                saveCuePropPatch({ buttonColor: null });
+                updateCuePropColorUI(null);
+                renderCuePropColorPresets(null);
+                refreshEditCardColor(activeCuePropertiesId, null);
+            });
+            document.getElementById('cuePropDeleteBtn')?.addEventListener('click', () => {
+                if (!activeCuePropertiesId) return;
+                if (!confirm('Delete this cue?')) return;
+                sendRemoteAction('delete_cue', { cueId: activeCuePropertiesId });
+                closeCuePropertiesPanel();
+            });
+        }
+
+        function populateSettingsForm() {
+            const c = appConfigRemote || {};
+            const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+            const setChk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+            setVal('cfgDefaultCueType', c.defaultCueType || 'single_file');
+            setVal('cfgDefaultFadeIn', c.defaultFadeInTime ?? 0);
+            setVal('cfgDefaultFadeOut', c.defaultFadeOutTime ?? 0);
+            setChk('cfgDefaultLoop', c.defaultLoopSingleCue);
+            setVal('cfgDefaultRetrigger', c.defaultRetriggerBehavior || 'restart');
+            setVal('cfgDefaultStopAll', c.defaultStopAllBehavior || 'stop');
+            setVal('cfgDefaultStopAllFade', c.defaultStopAllFadeOutTime ?? 1500);
+            setVal('cfgCrossfadeTime', c.crossfadeTime ?? 2000);
+            setChk('cfgDefaultShowButtonWaveform', c.defaultShowButtonWaveform);
+            setChk('cfgMainWaveformEnabled', c.mainWaveformEnabled !== false);
+        }
+
+        function bindSettingsFormEvents() {
+            const bind = (id, key, parser = (v) => v) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const eventName = el.type === 'checkbox' ? 'change' : 'change';
+                el.addEventListener(eventName, () => {
+                    let value = el.type === 'checkbox' ? el.checked : parser(el.value);
+                    debouncedSaveConfigPatch({ [key]: value });
+                });
+            };
+            bind('cfgDefaultCueType', 'defaultCueType');
+            bind('cfgDefaultFadeIn', 'defaultFadeInTime', v => parseInt(v, 10) || 0);
+            bind('cfgDefaultFadeOut', 'defaultFadeOutTime', v => parseInt(v, 10) || 0);
+            bind('cfgDefaultLoop', 'defaultLoopSingleCue');
+            bind('cfgDefaultRetrigger', 'defaultRetriggerBehavior');
+            bind('cfgDefaultStopAll', 'defaultStopAllBehavior');
+            bind('cfgDefaultStopAllFade', 'defaultStopAllFadeOutTime', v => parseInt(v, 10) || 0);
+            bind('cfgCrossfadeTime', 'crossfadeTime', v => parseInt(v, 10) || 2000);
+            bind('cfgDefaultShowButtonWaveform', 'defaultShowButtonWaveform');
+            bind('cfgMainWaveformEnabled', 'mainWaveformEnabled');
+        }
+
+        if (modePlaybackBtn) modePlaybackBtn.addEventListener('click', () => setRemoteMode('playback'));
+        if (modeEditBtn) modeEditBtn.addEventListener('click', () => setRemoteMode('edit'));
+        if (settingsBtnRemote) settingsBtnRemote.addEventListener('click', openSettingsPanel);
+        if (remoteSettingsClose) remoteSettingsClose.addEventListener('click', closeSettingsPanel);
+        if (remoteCuePropertiesClose) remoteCuePropertiesClose.addEventListener('click', closeCuePropertiesPanel);
+        if (remoteSettingsBackdrop) remoteSettingsBackdrop.addEventListener('click', closeAllPanels);
+        bindSettingsFormEvents();
+        bindCuePropertiesFormEvents();
+        setRemoteMode(remoteMode);
+
         // Diagnostic functions
         function noop() {}
         
@@ -371,28 +1422,46 @@
                 updateMessageInfo(message);
                 
                 if (message.type === 'all_cues') {
-                    currentCues = {}; // Reset
+                    currentCues = {};
                     if (message.payload && Array.isArray(message.payload)) {
                         message.payload.forEach(cue => currentCues[cue.id] = cue);
                         renderAllCuesRemote(message.payload);
                         syncPlayingCuesToRemotePanel();
+                        if (activeCuePropertiesId && !currentCues[activeCuePropertiesId]) {
+                            closeCuePropertiesPanel();
+                        } else if (activeCuePropertiesId) {
+                            sendRemoteAction('get_cue_detail', { cueId: activeCuePropertiesId });
+                        }
                     } else {
                         console.error('[DIAGNOSTIC] Remote received all_cues but payload is missing or not an array:', message);
                         renderAllCuesRemote([]); // Render empty or handle error
                     }
+                } else if (message.type === 'config_snapshot') {
+                    if (message.payload) {
+                        appConfigRemote = { ...appConfigRemote, ...message.payload };
+                        if (!remoteSettingsPanel?.classList.contains('hidden')) {
+                            populateSettingsForm();
+                        }
+                    }
+                } else if (message.type === 'cue_detail') {
+                    if (message.payload && message.payload.id === activeCuePropertiesId) {
+                        populateCuePropertiesForm(message.payload);
+                    }
+                } else if (message.type === 'action_result') {
+                    if (message.success) {
+                        showToast('Saved', 'success');
+                    } else {
+                        showToast(message.error || 'Save failed', 'error');
+                    }
                 } else if (message.type === 'remote_cue_update') {
                     if (currentCues[message.cue.id]) {
-                        Object.assign(currentCues[message.cue.id], message.cue); // Update stored cue
-                        updateCueButtonRemote(message.cue);
-                        
+                        Object.assign(currentCues[message.cue.id], message.cue);
+                        if (remoteMode === 'playback') {
+                            updateCueButtonRemote(message.cue);
+                        }
                     } else {
-                        currentCues[message.cue.id] = message.cue; // Add if new
-                        // Potentially re-render all or append new, for simplicity, could request all cues again
-                        // or just append. For now, we assume updates are for existing.
-                        // To handle new cues appearing dynamically, we might need to re-render the grid or add intelligently.
-                        // A simple approach for now:
+                        currentCues[message.cue.id] = message.cue;
                         ws.send(JSON.stringify({ action: 'request_all_cues_for_remote' }));
-                        
                     }
                 } else if (message.action === 'pong') {
                     
@@ -417,6 +1486,7 @@
 
         // Debounced triggerCue function
         const debouncedTriggerCue = debounce(function(cueId) {
+            if (remoteMode === 'edit') return;
             if (isTriggeringCueLocked) {
                 console.log(`REMOTE.HTML: Trigger for ${cueId} blocked by global lock.`);
                 return;
@@ -444,6 +1514,10 @@
         }, 300);
 
         const DEFAULT_CUE_BUTTON_COLOR = '#3a3a3a';
+        const PRESET_BUTTON_COLORS = [
+            '#ff006e', '#00f5ff', '#ff6b35', '#9d4edd',
+            '#ffd60a', '#4361ee', '#e63946', '#f72585'
+        ];
 
         function normalizeHexColor(color) {
             if (!color || typeof color !== 'string') return null;
@@ -513,25 +1587,48 @@
                 remoteWaveformPanel.style.height = `${remotePanelHeight}px`;
             }
             syncRemoteLanesLayout();
+            scheduleRemoteLanesResizeRedraw();
             localStorage.setItem('remoteWaveformHeight', String(remotePanelHeight));
         }
 
         function bindRemotePanelResize() {
             if (!remoteWaveformResizeHandle || !remoteWaveformPanel) return;
-            remoteWaveformResizeHandle.addEventListener('mousedown', (event) => {
-                event.preventDefault();
-                const startY = event.clientY;
+
+            const startResize = (startClientY) => {
+                const startY = startClientY;
                 const startHeight = remoteWaveformPanel.offsetHeight;
-                const onMove = (moveEvent) => setRemotePanelHeight(startHeight + (startY - moveEvent.clientY));
-                const onUp = () => {
-                    document.removeEventListener('mousemove', onMove);
-                    document.removeEventListener('mouseup', onUp);
+                const onMove = (clientY) => setRemotePanelHeight(startHeight + (startY - clientY));
+                const onMouseMove = (e) => onMove(e.clientY);
+                const onTouchMove = (e) => {
+                    e.preventDefault();
+                    if (e.touches[0]) onMove(e.touches[0].clientY);
+                };
+                const onEnd = () => {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onEnd);
+                    document.removeEventListener('touchmove', onTouchMove);
+                    document.removeEventListener('touchend', onEnd);
+                    document.removeEventListener('touchcancel', onEnd);
                     document.body.classList.remove('remote-waveform-resizing');
                 };
                 document.body.classList.add('remote-waveform-resizing');
-                document.addEventListener('mousemove', onMove);
-                document.addEventListener('mouseup', onUp);
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onEnd);
+                document.addEventListener('touchmove', onTouchMove, { passive: false });
+                document.addEventListener('touchend', onEnd);
+                document.addEventListener('touchcancel', onEnd);
+            };
+
+            remoteWaveformResizeHandle.addEventListener('mousedown', (event) => {
+                event.preventDefault();
+                startResize(event.clientY);
             });
+            remoteWaveformResizeHandle.addEventListener('touchstart', (event) => {
+                if (event.touches[0]) {
+                    event.preventDefault();
+                    startResize(event.touches[0].clientY);
+                }
+            }, { passive: false });
         }
 
         function updateRemotePanelHeader() {
@@ -558,15 +1655,48 @@
         }
 
         function syncRemoteLanesLayout() {
-            const count = Math.max(remoteWaveformLaneMap.size, 1);
-            const available = Math.max(MIN_LANE_CANVAS_HEIGHT, remotePanelHeight - REMOTE_PANEL_HEADER);
             const multi = remoteWaveformLaneMap.size > 1;
-            const perLane = Math.max(MIN_LANE_CANVAS_HEIGHT, Math.floor(available / count) - (multi ? REMOTE_LANE_HEADER : 0));
-
             remoteWaveformLanes?.classList.toggle('multi-lane', multi);
-            remoteWaveformLaneMap.forEach((lane) => {
-                if (lane.wrapEl) lane.wrapEl.style.height = `${perLane}px`;
+        }
+
+        function scheduleRemoteLanesResizeRedraw() {
+            if (remoteLanesResizeRaf) return;
+            remoteLanesResizeRaf = requestAnimationFrame(() => {
+                remoteLanesResizeRaf = null;
+                remoteWaveformLaneMap.forEach((lane) => {
+                    lane.bgCacheKey = null;
+                    if (lane.cue) redrawRemoteLane(lane.cue);
+                });
             });
+        }
+
+        function getRemoteCueVolume(cue) {
+            if (typeof cue.volume === 'number') {
+                return Math.max(0, Math.min(1, cue.volume));
+            }
+            const stored = currentCues[cue.id];
+            if (stored && typeof stored.volume === 'number') {
+                return Math.max(0, Math.min(1, stored.volume));
+            }
+            return 1;
+        }
+
+        function updateRemoteCueMeter(cue) {
+            const wrapper = cueGridRemote.querySelector(`.cue-remote-wrapper[data-cue-id="${cue.id}"]`);
+            if (!wrapper) return;
+            const meter = wrapper.querySelector('.cue-audio-meter-bar');
+            const container = wrapper.querySelector('.cue-audio-meter-container');
+            if (!meter || !container) return;
+
+            const active = isActivePlaybackStatus(cue.status);
+            const targetVolume = active ? getRemoteCueVolume(cue) : 0;
+            const previous = remoteCueMeterLevels[cue.id] ?? 0;
+            const smoothed = previous + (targetVolume - previous) * (active ? 0.35 : 1);
+            remoteCueMeterLevels[cue.id] = smoothed;
+
+            const pct = !active || smoothed <= 0 ? 0 : Math.max(8, smoothed * 100);
+            meter.style.height = `${pct}%`;
+            container.classList.toggle('cue-audio-meter-active', active && smoothed > 0.02);
         }
 
         function removeRemoteLane(cueId) {
@@ -595,7 +1725,7 @@
 
             const headerEl = document.createElement('div');
             headerEl.className = 'remote-waveform-lane-header';
-            headerEl.innerHTML = '<span class="remote-waveform-lane-name"></span><span class="remote-waveform-lane-time"></span>';
+            headerEl.innerHTML = '<span class="remote-waveform-lane-name"></span><span class="remote-waveform-lane-meta"><span class="remote-waveform-lane-volume"></span><span class="remote-waveform-lane-time"></span></span>';
             headerEl.querySelector('.remote-waveform-lane-name').textContent = cue.name || 'Cue';
 
             const wrapEl = document.createElement('div');
@@ -615,7 +1745,10 @@
                 headerEl,
                 wrapEl,
                 canvas,
-                timeEl: headerEl.querySelector('.remote-waveform-lane-time')
+                bgCanvas: null,
+                bgCacheKey: null,
+                timeEl: headerEl.querySelector('.remote-waveform-lane-time'),
+                volumeEl: headerEl.querySelector('.remote-waveform-lane-volume')
             };
             remoteWaveformLaneMap.set(cue.id, lane);
             syncRemoteLanesLayout();
@@ -630,21 +1763,110 @@
             return total || 0;
         }
 
+        function getLaneCanvasSize(lane) {
+            const wrap = lane.wrapEl;
+            return {
+                width: Math.max(1, wrap ? wrap.clientWidth : 1),
+                height: Math.max(1, wrap ? wrap.clientHeight : 1)
+            };
+        }
+
+        function getLaneBgCacheKey(lane, cue, width, height) {
+            const itemKey = cue.playlistItemName || '';
+            const trimKey = `${cue.trimStartTime || 0}:${cue.trimEndTime || 0}`;
+            return `${width}x${height}:${itemKey}:${trimKey}`;
+        }
+
+        function drawWaveformBars(ctx, width, height, peaksData, cue) {
+            const fullDuration = peaksData.duration || cue.knownDurationS || 0;
+            const trimStart = cue.trimStartTime || 0;
+            const trimEnd = cue.trimEndTime && cue.trimEndTime > trimStart ? cue.trimEndTime : fullDuration;
+            const trimStartRatio = fullDuration > 0 ? trimStart / fullDuration : 0;
+            const trimEndRatio = fullDuration > 0 ? Math.min(1, trimEnd / fullDuration) : 1;
+            const peaks = peaksData.peaks;
+            const midY = height / 2;
+            const barWidth = Math.max(1, width / peaks.length);
+
+            for (let i = 0; i < peaks.length; i++) {
+                const x = (i / peaks.length) * width;
+                const ratio = i / peaks.length;
+                const amplitude = peaks[i] * (height * 0.42);
+                ctx.fillStyle = (ratio < trimStartRatio || ratio > trimEndRatio)
+                    ? 'rgba(120, 120, 120, 0.55)'
+                    : 'rgba(79, 70, 229, 0.85)';
+                ctx.fillRect(x, midY - amplitude, Math.max(1, barWidth), amplitude * 2);
+            }
+        }
+
+        function drawWaveformPlayhead(ctx, width, height, cue) {
+            const playheadRatio = typeof cue.fileProgressRatio === 'number'
+                ? cue.fileProgressRatio
+                : (typeof cue.progressRatio === 'number' ? cue.progressRatio : 0);
+            const playheadX = Math.min(width - 1, Math.max(0, playheadRatio * width));
+            ctx.strokeStyle = '#EF4444';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(playheadX, 0);
+            ctx.lineTo(playheadX, height);
+            ctx.stroke();
+        }
+
+        function ensureLaneWaveformBackground(lane, cue) {
+            const { width, height } = getLaneCanvasSize(lane);
+            const cacheKey = getLaneBgCacheKey(lane, cue, width, height);
+            if (lane.bgCacheKey === cacheKey && lane.bgCanvas) {
+                return { width, height };
+            }
+
+            if (!lane.bgCanvas) lane.bgCanvas = document.createElement('canvas');
+            const dpr = window.devicePixelRatio || 1;
+            lane.bgCanvas.width = Math.floor(width * dpr);
+            lane.bgCanvas.height = Math.floor(height * dpr);
+            const bgCtx = lane.bgCanvas.getContext('2d');
+            bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            bgCtx.clearRect(0, 0, width, height);
+            drawWaveformBars(bgCtx, width, height, lane.peaksData, cue);
+            lane.bgCacheKey = cacheKey;
+            return { width, height };
+        }
+
         function redrawRemoteLane(cue) {
             const lane = remoteWaveformLaneMap.get(cue.id);
-            if (!lane) return;
+            if (!lane || !lane.peaksData) return;
 
-            drawWaveformOnCanvas(lane.canvas, lane.peaksData, cue);
+            const { width, height } = ensureLaneWaveformBackground(lane, cue);
+            const canvas = lane.canvas;
+            const dpr = window.devicePixelRatio || 1;
+            const pixelW = Math.floor(width * dpr);
+            const pixelH = Math.floor(height * dpr);
+            if (canvas.width !== pixelW || canvas.height !== pixelH) {
+                canvas.width = pixelW;
+                canvas.height = pixelH;
+            }
+
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, width, height);
+            if (lane.bgCanvas) {
+                ctx.drawImage(lane.bgCanvas, 0, 0, width, height);
+            }
+            drawWaveformPlayhead(ctx, width, height, cue);
 
             const current = cue.currentTimeS || 0;
             const total = getCueDurationForDisplay(cue);
             const timeStr = `${formatTimeMMSS(current)} / ${formatTimeMMSS(total)}`;
 
             if (remoteWaveformLaneMap.size === 1 && remoteWaveformTime) {
-                remoteWaveformTime.textContent = timeStr;
+                const volPct = Math.round(getRemoteCueVolume(cue) * 100);
+                remoteWaveformTime.textContent = `${timeStr} · ${volPct}%`;
             }
             if (lane.timeEl) {
                 lane.timeEl.textContent = timeStr;
+            }
+            if (lane.volumeEl) {
+                const active = isActivePlaybackStatus(cue.status);
+                lane.volumeEl.textContent = `${Math.round(getRemoteCueVolume(cue) * 100)}%`;
+                lane.volumeEl.style.display = active ? '' : 'none';
             }
         }
 
@@ -765,49 +1987,18 @@
             const width = Math.max(1, wrap ? wrap.clientWidth : canvas.clientWidth || 160);
             const height = Math.max(1, wrap ? wrap.clientHeight : canvas.clientHeight || 36);
             const dpr = window.devicePixelRatio || 1;
-            canvas.width = Math.floor(width * dpr);
-            canvas.height = Math.floor(height * dpr);
-            canvas.style.width = `${width}px`;
-            canvas.style.height = `${height}px`;
+            const pixelW = Math.floor(width * dpr);
+            const pixelH = Math.floor(height * dpr);
+            if (canvas.width !== pixelW || canvas.height !== pixelH) {
+                canvas.width = pixelW;
+                canvas.height = pixelH;
+            }
 
             const ctx = canvas.getContext('2d');
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.clearRect(0, 0, width, height);
-
-            const fullDuration = peaksData.duration || cue.knownDurationS || 0;
-            const trimStart = cue.trimStartTime || 0;
-            const trimEnd = cue.trimEndTime && cue.trimEndTime > trimStart ? cue.trimEndTime : fullDuration;
-            const trimStartRatio = fullDuration > 0 ? trimStart / fullDuration : 0;
-            const trimEndRatio = fullDuration > 0 ? Math.min(1, trimEnd / fullDuration) : 1;
-
-            const peaks = peaksData.peaks;
-            const midY = height / 2;
-            const barWidth = Math.max(1, width / peaks.length);
-
-            ctx.fillStyle = 'rgba(79, 70, 229, 0.85)';
-            for (let i = 0; i < peaks.length; i++) {
-                const x = (i / peaks.length) * width;
-                const ratio = i / peaks.length;
-                const amplitude = peaks[i] * (height * 0.42);
-                if (ratio < trimStartRatio || ratio > trimEndRatio) {
-                    ctx.fillStyle = 'rgba(120, 120, 120, 0.55)';
-                } else {
-                    ctx.fillStyle = 'rgba(79, 70, 229, 0.85)';
-                }
-                ctx.fillRect(x, midY - amplitude, Math.max(1, barWidth), amplitude * 2);
-            }
-
-            const playheadRatio = typeof cue.fileProgressRatio === 'number'
-                ? cue.fileProgressRatio
-                : (typeof cue.progressRatio === 'number' ? cue.progressRatio : 0);
-            const playheadX = Math.min(width - 1, Math.max(0, playheadRatio * width));
-
-            ctx.strokeStyle = '#EF4444';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(playheadX, 0);
-            ctx.lineTo(playheadX, height);
-            ctx.stroke();
+            drawWaveformBars(ctx, width, height, peaksData, cue);
+            drawWaveformPlayhead(ctx, width, height, cue);
         }
 
         function formatTimeMMSS(seconds, showMs = false) {
@@ -878,20 +2069,28 @@
 
 
         function renderAllCuesRemote(cues) {
-            cueGridRemote.innerHTML = ''; // Clear existing
+            if (remoteMode === 'edit') {
+                renderEditGridRemote(cues);
+            } else {
+                renderPlaybackGridRemote(cues);
+            }
+        }
+
+        function renderPlaybackGridRemote(cues) {
+            cueGridRemote.innerHTML = '';
             if (!cues || cues.length === 0) {
                 cueGridRemote.innerHTML = '<p style="text-align: center; color: #888;">No cues available.</p>';
                 return;
             }
             cues.forEach(cue => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'cue-remote-wrapper';
+                wrapper.dataset.cueId = cue.id;
+
                 const button = document.createElement('div');
                 button.className = 'cue-button-remote';
                 button.dataset.cueId = cue.id;
-                
-                // Unique ID for the button element for easier updates
                 button.id = `cue-btn-${cue.id}`;
-
-                // Structure for name and times
                 button.innerHTML = `
                     <div class="cue-remote-body">
                         <span class="name"></span>
@@ -906,26 +2105,363 @@
                         <canvas class="waveform-canvas"></canvas>
                     </div>
                 `;
-                
                 updateButtonTextContent(button, cue);
                 updateButtonStatusClass(button, cue.status, cue);
                 ensureWaveformForButton(button, cue);
+                button.addEventListener('click', () => debouncedTriggerCue(cue.id));
 
-                // Use the debounced function in the event listener
-                button.addEventListener('click', () => debouncedTriggerCue(cue.id)); 
-                
-                cueGridRemote.appendChild(button);
+                const meterContainer = document.createElement('div');
+                meterContainer.className = 'cue-audio-meter-container';
+                const meterBar = document.createElement('div');
+                meterBar.className = 'cue-audio-meter-bar';
+                meterContainer.appendChild(meterBar);
+
+                wrapper.appendChild(button);
+                wrapper.appendChild(meterContainer);
+                updateRemoteCueMeter(cue);
+                cueGridRemote.appendChild(wrapper);
+            });
+        }
+
+        function renderEditGridRemote(cues) {
+            cueGridRemote.innerHTML = '';
+            cueGridRemote.classList.remove('drag-active');
+            if (!cues || cues.length === 0) {
+                cueGridRemote.innerHTML = '<p style="text-align: center; color: #888;">No cues available.</p>';
+                return;
+            }
+            cues.forEach(cue => {
+                const card = document.createElement('div');
+                card.className = 'cue-edit-card';
+                if (cue.id === activeCuePropertiesId) card.classList.add('cue-edit-selected');
+                card.dataset.cueId = cue.id;
+                const volPct = Math.round((cue.volume !== undefined ? cue.volume : 1) * 100);
+                card.innerHTML = `
+                    <div class="cue-edit-top">
+                        <div class="cue-edit-drag" title="Long-press and drag to reorder">⋮⋮</div>
+                        <div class="cue-edit-top-right">
+                            <div class="cue-edit-color-preview" title="Button color"></div>
+                            <button type="button" class="cue-edit-settings-btn" title="Cue properties" aria-label="Cue properties">⚙</button>
+                        </div>
+                    </div>
+                    <div class="cue-edit-color-swatches"></div>
+                    <input type="text" class="cue-edit-name" value="" aria-label="Cue name">
+                    <div class="cue-edit-volume-row">
+                        <span class="cue-edit-volume-label">Volume</span>
+                        <span class="cue-edit-volume-pct">${volPct}%</span>
+                        <input type="range" class="cue-edit-volume" min="0" max="100" step="1" value="${volPct}">
+                    </div>
+                    <div class="cue-edit-type">${cue.type === 'playlist' ? 'Playlist' : 'Single file'}</div>
+                    <div class="cue-edit-reorder-row">
+                        <button type="button" class="cue-move-btn cue-move-earlier" title="Move earlier in list" aria-label="Move cue earlier">◀</button>
+                        <span class="cue-edit-order-label">Reorder</span>
+                        <button type="button" class="cue-move-btn cue-move-later" title="Move later in list" aria-label="Move cue later">▶</button>
+                    </div>
+                `;
+                applyEditCardAppearance(card, cue);
+                const swatchContainer = card.querySelector('.cue-edit-color-swatches');
+                buildCardColorSwatches(swatchContainer, cue.id, cue.buttonColor);
+                const nameInput = card.querySelector('.cue-edit-name');
+                const volInput = card.querySelector('.cue-edit-volume');
+                const volLabel = card.querySelector('.cue-edit-volume-pct');
+                nameInput.value = cue.name || '';
+                nameInput.addEventListener('click', e => e.stopPropagation());
+                nameInput.addEventListener('change', (e) => {
+                    e.stopPropagation();
+                    debouncedSaveCuePatch(cue.id, { name: nameInput.value });
+                });
+                volInput.addEventListener('click', e => e.stopPropagation());
+                volInput.addEventListener('input', (e) => {
+                    e.stopPropagation();
+                    volLabel.textContent = `${volInput.value}%`;
+                });
+                volInput.addEventListener('change', (e) => {
+                    e.stopPropagation();
+                    debouncedSaveCuePatch(cue.id, { volume: parseInt(volInput.value, 10) / 100 });
+                });
+                const settingsBtn = card.querySelector('.cue-edit-settings-btn');
+                if (settingsBtn) {
+                    settingsBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openCuePropertiesPanel(cue.id);
+                    });
+                }
+                bindCueMoveButtons(card, cue.id);
+                const dragHandle = card.querySelector('.cue-edit-drag');
+                bindEditCardDrag(card, dragHandle);
+                bindEditCardTouchReorder(card, dragHandle);
+                cueGridRemote.appendChild(card);
+            });
+        }
+
+        function getCueOrderIds() {
+            return Object.values(currentCues).map(c => c.id);
+        }
+
+        function moveCueInOrder(cueId, delta) {
+            const ids = getCueOrderIds();
+            const idx = ids.indexOf(cueId);
+            if (idx < 0) return;
+            const newIdx = idx + delta;
+            if (newIdx < 0 || newIdx >= ids.length) return;
+            ids.splice(idx, 1);
+            ids.splice(newIdx, 0, cueId);
+            sendRemoteAction('reorder_cues', { cueIds: ids });
+        }
+
+        function bindCueMoveButtons(card, cueId) {
+            const earlierBtn = card.querySelector('.cue-move-earlier');
+            const laterBtn = card.querySelector('.cue-move-later');
+            const ids = getCueOrderIds();
+            const idx = ids.indexOf(cueId);
+            if (earlierBtn) {
+                earlierBtn.disabled = idx <= 0;
+                earlierBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    moveCueInOrder(cueId, -1);
+                });
+            }
+            if (laterBtn) {
+                laterBtn.disabled = idx < 0 || idx >= ids.length - 1;
+                laterBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    moveCueInOrder(cueId, 1);
+                });
+            }
+        }
+
+        function performCueReorder(fromId, toId, insertAfter) {
+            if (!fromId || !toId || fromId === toId) return;
+            const ids = Object.values(currentCues).map(c => c.id);
+            const fromIdx = ids.indexOf(fromId);
+            let toIdx = ids.indexOf(toId);
+            if (fromIdx < 0 || toIdx < 0) return;
+            ids.splice(fromIdx, 1);
+            toIdx = ids.indexOf(toId);
+            ids.splice(insertAfter ? toIdx + 1 : toIdx, 0, fromId);
+            sendRemoteAction('reorder_cues', { cueIds: ids });
+        }
+
+        function clearReorderIndicators() {
+            document.querySelectorAll('.cue-edit-card').forEach(el => {
+                el.classList.remove('drag-insert-before', 'drag-insert-after', 'dragging');
+                el.style.pointerEvents = '';
+            });
+            document.querySelectorAll('.cue-edit-drag.reorder-active').forEach(el => {
+                el.classList.remove('reorder-active');
+            });
+            cueGridRemote?.classList.remove('drag-active');
+            document.body.classList.remove('remote-reorder-active');
+            removeTouchReorderGhost();
+        }
+
+        function removeTouchReorderGhost() {
+            if (touchReorderGhostEl) {
+                touchReorderGhostEl.remove();
+                touchReorderGhostEl = null;
+            }
+        }
+
+        function createTouchReorderGhost(sourceCard) {
+            removeTouchReorderGhost();
+            const ghost = sourceCard.cloneNode(true);
+            ghost.classList.add('cue-reorder-ghost');
+            ghost.classList.remove('dragging', 'cue-edit-selected');
+            const rect = sourceCard.getBoundingClientRect();
+            ghost.style.width = `${rect.width}px`;
+            ghost.style.left = `${rect.left}px`;
+            ghost.style.top = `${rect.top}px`;
+            document.body.appendChild(ghost);
+            touchReorderGhostEl = ghost;
+            return ghost;
+        }
+
+        function moveTouchReorderGhost(clientX, clientY, sourceRect) {
+            if (!touchReorderGhostEl) return;
+            touchReorderGhostEl.style.left = `${clientX - sourceRect.width / 2}px`;
+            touchReorderGhostEl.style.top = `${clientY - sourceRect.height / 2}px`;
+        }
+
+        /** iOS-safe drop target: compare touch point to card rects (elementFromPoint fails under finger). */
+        function findDropTargetAtPoint(clientX, clientY, draggingCueId) {
+            const cards = [...cueGridRemote.querySelectorAll('.cue-edit-card')];
+            let best = null;
+            let bestArea = Infinity;
+            for (const targetCard of cards) {
+                if (targetCard.dataset.cueId === draggingCueId) continue;
+                const rect = targetCard.getBoundingClientRect();
+                if (clientX >= rect.left && clientX <= rect.right
+                    && clientY >= rect.top && clientY <= rect.bottom) {
+                    const area = rect.width * rect.height;
+                    if (area < bestArea) {
+                        bestArea = area;
+                        const insertAfter = clientX >= rect.left + rect.width / 2;
+                        best = { targetCard, insertAfter };
+                    }
+                }
+            }
+            return best;
+        }
+
+        function updateReorderIndicatorAtPoint(clientX, clientY, draggingCueId) {
+            document.querySelectorAll('.cue-edit-card').forEach(el => {
+                el.classList.remove('drag-insert-before', 'drag-insert-after');
+            });
+            const hit = findDropTargetAtPoint(clientX, clientY, draggingCueId);
+            if (!hit) return null;
+            hit.targetCard.classList.add(hit.insertAfter ? 'drag-insert-after' : 'drag-insert-before');
+            return hit;
+        }
+
+        function finishTouchReorder() {
+            if (!touchReorderState) return;
+            const { cueId, targetCard, insertAfter } = touchReorderState;
+            if (targetCard && targetCard.dataset.cueId !== cueId) {
+                performCueReorder(cueId, targetCard.dataset.cueId, insertAfter);
+            }
+            touchReorderState = null;
+            draggedEditCueId = null;
+            clearReorderIndicators();
+        }
+
+        function bindEditCardTouchReorder(card, dragHandle) {
+            if (!dragHandle) return;
+            let pressStartX = 0;
+            let pressStartY = 0;
+            let sourceRect = null;
+
+            const cancelPressTimer = () => {
+                if (touchReorderPressTimer) {
+                    clearTimeout(touchReorderPressTimer);
+                    touchReorderPressTimer = null;
+                }
+            };
+
+            const onDocumentTouchMove = (e) => {
+                if (!touchReorderState || touchReorderState.cueId !== card.dataset.cueId) return;
+                if (!e.touches[0]) return;
+                e.preventDefault();
+                const t = e.touches[0];
+                if (sourceRect) {
+                    moveTouchReorderGhost(t.clientX, t.clientY, sourceRect);
+                }
+                const hit = updateReorderIndicatorAtPoint(t.clientX, t.clientY, card.dataset.cueId);
+                touchReorderState.targetCard = hit?.targetCard || null;
+                touchReorderState.insertAfter = hit?.insertAfter ?? false;
+            };
+
+            const onDocumentTouchEnd = () => {
+                document.removeEventListener('touchmove', onDocumentTouchMove);
+                document.removeEventListener('touchend', onDocumentTouchEnd);
+                document.removeEventListener('touchcancel', onDocumentTouchEnd);
+                finishTouchReorder();
+            };
+
+            dragHandle.addEventListener('touchstart', (e) => {
+                if (touchReorderState || e.touches.length !== 1) return;
+                const t = e.touches[0];
+                pressStartX = t.clientX;
+                pressStartY = t.clientY;
+                cancelPressTimer();
+                touchReorderPressTimer = setTimeout(() => {
+                    touchReorderPressTimer = null;
+                    sourceRect = card.getBoundingClientRect();
+                    touchReorderState = {
+                        cueId: card.dataset.cueId,
+                        targetCard: null,
+                        insertAfter: false
+                    };
+                    draggedEditCueId = card.dataset.cueId;
+                    card.classList.add('dragging');
+                    card.style.pointerEvents = 'none';
+                    dragHandle.classList.add('reorder-active');
+                    cueGridRemote.classList.add('drag-active');
+                    document.body.classList.add('remote-reorder-active');
+                    createTouchReorderGhost(card);
+                    moveTouchReorderGhost(t.clientX, t.clientY, sourceRect);
+                    if (navigator.vibrate) navigator.vibrate(15);
+                    document.addEventListener('touchmove', onDocumentTouchMove, { passive: false });
+                    document.addEventListener('touchend', onDocumentTouchEnd);
+                    document.addEventListener('touchcancel', onDocumentTouchEnd);
+                }, TOUCH_REORDER_LONG_PRESS_MS);
+            }, { passive: true });
+
+            dragHandle.addEventListener('touchmove', (e) => {
+                if (!touchReorderPressTimer || !e.touches[0]) return;
+                const t = e.touches[0];
+                if (Math.abs(t.clientX - pressStartX) > 14 || Math.abs(t.clientY - pressStartY) > 14) {
+                    cancelPressTimer();
+                }
+            }, { passive: true });
+
+            dragHandle.addEventListener('touchend', cancelPressTimer);
+            dragHandle.addEventListener('touchcancel', cancelPressTimer);
+        }
+
+        function bindEditCardDrag(card, dragHandle) {
+            if (!dragHandle) return;
+            dragHandle.draggable = true;
+            dragHandle.addEventListener('click', e => e.stopPropagation());
+            dragHandle.addEventListener('dragstart', (e) => {
+                e.stopPropagation();
+                draggedEditCueId = card.dataset.cueId;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', draggedEditCueId);
+                card.classList.add('dragging');
+                cueGridRemote.classList.add('drag-active');
+            });
+            dragHandle.addEventListener('dragend', (e) => {
+                e.stopPropagation();
+                card.classList.remove('dragging');
+                cueGridRemote.classList.remove('drag-active');
+                document.querySelectorAll('.cue-edit-card').forEach(el => {
+                    el.classList.remove('drag-insert-before', 'drag-insert-after');
+                });
+                draggedEditCueId = null;
+            });
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (!draggedEditCueId || card.dataset.cueId === draggedEditCueId) return;
+                document.querySelectorAll('.cue-edit-card').forEach(el => {
+                    el.classList.remove('drag-insert-before', 'drag-insert-after');
+                });
+                const rect = card.getBoundingClientRect();
+                if (e.clientX < rect.left + rect.width / 2) {
+                    card.classList.add('drag-insert-before');
+                } else {
+                    card.classList.add('drag-insert-after');
+                }
+            });
+            card.addEventListener('dragleave', (e) => {
+                const rect = card.getBoundingClientRect();
+                if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+                    card.classList.remove('drag-insert-before', 'drag-insert-after');
+                }
+            });
+            card.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const fromId = e.dataTransfer.getData('text/plain');
+                const toId = card.dataset.cueId;
+                if (!fromId || fromId === toId) return;
+                const rect = card.getBoundingClientRect();
+                const insertAfter = e.clientX >= rect.left + rect.width / 2;
+                performCueReorder(fromId, toId, insertAfter);
+                clearReorderIndicators();
+                draggedEditCueId = null;
             });
         }
 
         function updateCueButtonRemote(cue) {
-            const button = cueGridRemote.querySelector(`.cue-button-remote[data-cue-id="${cue.id}"]`);
+            const wrapper = cueGridRemote.querySelector(`.cue-remote-wrapper[data-cue-id="${cue.id}"]`);
+            const button = wrapper?.querySelector('.cue-button-remote') || cueGridRemote.querySelector(`.cue-button-remote[data-cue-id="${cue.id}"]`);
             const mergedCue = { ...currentCues[cue.id], ...cue };
             if (button) {
                 updateButtonTextContent(button, mergedCue);
                 updateButtonStatusClass(button, mergedCue.status, mergedCue);
                 ensureWaveformForButton(button, mergedCue);
             }
+            updateRemoteCueMeter(mergedCue);
             handleRemoteWaveformUpdate(mergedCue);
         }
 
@@ -947,7 +2483,19 @@
 
         setRemotePanelHeight(remotePanelHeight);
         bindRemotePanelResize();
-        window.addEventListener('resize', () => syncRemoteLanesLayout());
+        if (remoteWaveformLanes && typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(() => scheduleRemoteLanesResizeRedraw()).observe(remoteWaveformLanes);
+        }
+        window.addEventListener('resize', () => {
+            const clamped = clampRemotePanelHeight(remotePanelHeight);
+            if (clamped !== remotePanelHeight) {
+                remotePanelHeight = clamped;
+                if (remoteWaveformPanel) {
+                    remoteWaveformPanel.style.height = `${remotePanelHeight}px`;
+                }
+            }
+            scheduleRemoteLanesResizeRedraw();
+        });
 
     </script>
 </body>
