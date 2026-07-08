@@ -195,6 +195,159 @@ input.cue-section-title {
     background: rgba(255, 255, 255, 0.1);
 }
 
+#appContainer.edit-mode .cue-wrapper {
+    aspect-ratio: auto;
+    min-height: 0;
+}
+
+#appContainer.edit-mode .cue-section-body {
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+}
+
+.cue-edit-card {
+    background: #2f2f2f;
+    border: 2px solid #666;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    cursor: default;
+    box-sizing: border-box;
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    touch-action: manipulation;
+}
+
+.cue-edit-card:hover {
+    box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.45);
+}
+
+.cue-wrapper.cue-selected .cue-edit-card {
+    outline: 2px solid var(--button-primary-bg, #3498db);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.28);
+}
+
+.cue-edit-top {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-right: 18px;
+}
+
+.cue-edit-top-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cue-edit-color-preview {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    flex-shrink: 0;
+}
+
+.cue-edit-settings-btn {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    color: #e0e0e0;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    font-size: 1em;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.cue-edit-settings-btn:hover {
+    background: rgba(217, 119, 6, 0.45);
+}
+
+.cue-edit-color-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.cue-color-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    cursor: pointer;
+    padding: 0;
+}
+
+.cue-color-swatch.active {
+    outline: 2px solid #fff;
+    outline-offset: 1px;
+}
+
+.cue-edit-name {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.25);
+    color: inherit;
+    padding: 6px 8px;
+    font-size: 0.92em;
+    font-family: inherit;
+}
+
+.cue-edit-name:focus {
+    outline: 2px solid rgba(217, 119, 6, 0.65);
+    border-color: rgba(217, 119, 6, 0.65);
+}
+
+.cue-edit-volume-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 4px 8px;
+    font-size: 0.85em;
+    width: 100%;
+    min-width: 0;
+}
+
+.cue-edit-volume-label {
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.cue-edit-volume-pct {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.cue-edit-volume-row input[type="range"] {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    touch-action: none;
+    cursor: ew-resize;
+}
+
+.cue-edit-type {
+    font-size: 0.72em;
+    opacity: 0.7;
+    text-align: center;
+}
+
 .cue-wrapper {
     position: relative;
     display: flex;
@@ -682,6 +835,18 @@ input.cue-section-title {
 }
 
 /* Drag and Drop Styles for Cue Reordering */
+.cue-drag-gap-placeholder {
+    width: 100%;
+    min-height: 132px;
+    border: 2px dashed rgba(52, 152, 219, 0.75);
+    border-radius: 8px;
+    background: rgba(52, 152, 219, 0.14);
+    box-sizing: border-box;
+    pointer-events: none;
+    align-self: start;
+    transition: min-height 0.12s ease, opacity 0.12s ease;
+}
+
 .cue-wrapper.dragging-cue {
     opacity: 0.5;
     cursor: grabbing !important;
@@ -694,42 +859,6 @@ input.cue-section-title {
 
 .cue-wrapper.dragging-cue .cue-button {
     cursor: grabbing !important;
-}
-
-.cue-wrapper.drag-insert-before {
-    border-left: 3px solid var(--button-primary-bg, #2980b9);
-    margin-left: -3px;
-    position: relative;
-}
-
-.cue-wrapper.drag-insert-before::before {
-    content: '';
-    position: absolute;
-    left: -2px;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background-color: var(--button-primary-bg, #2980b9);
-    box-shadow: 0 0 8px var(--button-primary-bg, #2980b9);
-    z-index: 10;
-}
-
-.cue-wrapper.drag-insert-after {
-    border-right: 3px solid var(--button-primary-bg, #2980b9);
-    margin-right: -3px;
-    position: relative;
-}
-
-.cue-wrapper.drag-insert-after::after {
-    content: '';
-    position: absolute;
-    right: -2px;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background-color: var(--button-primary-bg, #2980b9);
-    box-shadow: 0 0 8px var(--button-primary-bg, #2980b9);
-    z-index: 10;
 }
 
 #cueGridContainer.drag-active {

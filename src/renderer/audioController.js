@@ -209,6 +209,13 @@ function prepareScrubSeek(cueId) {
     playbackManagerModule.prepareScrubInCue(cueId);
 }
 
+function finishScrubSeek(cueId) {
+    if (!audioControllerInitialized || !playbackManagerModule || !playbackManagerModule.finishScrubInCue) {
+        return;
+    }
+    playbackManagerModule.finishScrubInCue(cueId);
+}
+
 function setVolume(cueId, volume, options = {}) {
     if (!audioControllerInitialized || !playbackManagerModule || !playbackManagerModule.setCueVolume) {
         log.error(`AudioController: setVolume called for ${cueId} before full initialization or playbackManager not ready.`);
@@ -793,6 +800,7 @@ export default {
     // pause: (cueId) => playbackManagerModule?.pauseCue(cueId), // Expose pauseCue from manager
     seek,
     prepareScrubSeek,
+    finishScrubSeek,
     setVolume,
     getPlaybackTimes, // This now includes more comprehensive state
     isPlaying,

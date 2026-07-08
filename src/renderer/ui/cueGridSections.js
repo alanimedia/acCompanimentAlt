@@ -1,4 +1,11 @@
 import { uiLog } from './uiLogger.js';
+import {
+    endDragGap,
+    getDragGapState,
+    updateDragGapAt,
+    applyItemsAtDropIntent
+} from './dragGapPlaceholder.js';
+import { startDragAutoScroll, stopDragAutoScroll } from './dragAutoScroll.js';
 
 export function buildLayoutFromDom(container) {
     const layout = [];
@@ -9,8 +16,9 @@ export function buildLayoutFromDom(container) {
         if (!sectionId) return;
         layout.push({ type: 'section', sectionId });
         block.querySelectorAll(':scope > .cue-section-body > .cue-wrapper').forEach(wrapper => {
-            const button = wrapper.querySelector('.cue-button');
-            const cueId = button?.dataset.cueId;
+            const cueId = wrapper.dataset.cueId
+                || wrapper.querySelector('.cue-button')?.dataset.cueId
+                || wrapper.querySelector('.cue-edit-card')?.dataset.cueId;
             if (cueId) {
                 layout.push({ type: 'cue', cueId, sectionId });
             }
@@ -51,6 +59,7 @@ export function createSectionBlock(section, {
             block.classList.add('dragging-section');
             const container = gridContainer || block.closest('#cueGridContainer');
             container?.classList.add('section-drag-active');
+            startDragAutoScroll(document.getElementById('mainDropArea'));
         });
         dragHandle.addEventListener('dragend', () => {
             block.classList.remove('dragging-section');
@@ -58,6 +67,7 @@ export function createSectionBlock(section, {
             container?.classList.remove('section-drag-active');
             container?.querySelectorAll('.cue-section-block.section-insert-before, .cue-section-block.section-insert-after')
                 .forEach(el => el.classList.remove('section-insert-before', 'section-insert-after'));
+            stopDragAutoScroll();
         });
         header.appendChild(dragHandle);
     }
@@ -165,13 +175,31 @@ function findInsertPositionInSection(sectionBody, clientX, clientY) {
 
     for (const wrapper of wrappers) {
         const rect = wrapper.getBoundingClientRect();
-        const inRow = clientY >= rect.top && clientY <= rect.bottom;
-        if (!inRow) continue;
-        const midpoint = rect.left + rect.width / 2;
-        if (clientX < midpoint) {
-            return { before: wrapper };
+        if (clientX >= rect.left && clientX <= rect.right
+            && clientY >= rect.top && clientY <= rect.bottom) {
+            const midpoint = rect.left + rect.width / 2;
+            return clientX < midpoint ? { before: wrapper } : { after: wrapper };
         }
-        return { after: wrapper };
+    }
+
+    let closest = null;
+    let closestDist = Infinity;
+    for (const wrapper of wrappers) {
+        const rect = wrapper.getBoundingClientRect();
+        const centerY = rect.top + rect.height / 2;
+        const dist = Math.abs(clientY - centerY);
+        if (dist < closestDist) {
+            closestDist = dist;
+            closest = wrapper;
+        }
+    }
+
+    if (closest) {
+        const rect = closest.getBoundingClientRect();
+        if (clientY < rect.top) return { before: closest };
+        if (clientY > rect.bottom) return { after: closest };
+        const midpoint = rect.left + rect.width / 2;
+        return clientX < midpoint ? { before: closest } : { after: closest };
     }
 
     return { append: true };
@@ -202,8 +230,9 @@ export function getActiveDragWrappers(container = document, dataTransfer = null)
             ? idsValue.split(',').filter(Boolean)
             : [dataTransfer.getData('text/plain')].filter(Boolean);
         const wrappers = cueIds.map(cueId => {
-            const button = root.querySelector(`[data-cue-id="${cueId}"]`);
-            return button?.closest('.cue-wrapper') || null;
+            const el = root.querySelector(`.cue-wrapper[data-cue-id="${cueId}"]`)
+                || root.querySelector(`.cue-edit-card[data-cue-id="${cueId}"]`);
+            return el?.classList?.contains('cue-wrapper') ? el : el?.closest('.cue-wrapper') || null;
         }).filter(Boolean);
         if (wrappers.length > 0) {
             return sortWrappersDocumentOrder(wrappers);
@@ -252,6 +281,37 @@ export function appendWrappersToSection(sectionBody, wrappers) {
     const ordered = sortWrappersDocumentOrder(wrappers);
     removeWrappersFromDom(ordered);
     ordered.forEach(wrapper => sectionBody.appendChild(wrapper));
+}
+
+function updateSectionDragGap(sectionBody, clientX, clientY, slotCount) {
+    if (!sectionBody) return;
+    const state = getDragGapState();
+    if (!state) return;
+
+    const position = findInsertPositionInSection(sectionBody, clientX, clientY);
+    if (position.before) {
+        updateDragGapAt(state, {
+            parent: sectionBody,
+            refNode: position.before,
+            insertBefore: true,
+            slotCount
+        });
+        return;
+    }
+    if (position.after) {
+        updateDragGapAt(state, {
+            parent: sectionBody,
+            refNode: position.after,
+            insertBefore: false,
+            slotCount
+        });
+        return;
+    }
+    updateDragGapAt(state, {
+        parent: sectionBody,
+        refNode: null,
+        slotCount
+    });
 }
 
 export function moveCueWrappersInSection(sectionBody, wrappers, clientX, clientY) {
@@ -383,7 +443,8 @@ export function bindSectionCueDragDrop(container, {
     container.addEventListener('dragover', (event) => {
         if (typeof canAcceptDrop === 'function' && !canAcceptDrop()) return;
         if (isSectionDragEvent(event)) return;
-        if (getActiveDragWrappers(container).length === 0) return;
+        const draggedWrappers = getActiveDragWrappers(container);
+        if (draggedWrappers.length === 0) return;
 
         const sectionBody = resolveSectionBodyFromEventTarget(event.target, container);
         if (!sectionBody) return;
@@ -393,6 +454,7 @@ export function bindSectionCueDragDrop(container, {
         event.dataTransfer.dropEffect = 'move';
         clearSectionDragOver();
         sectionBody.classList.add('cue-section-drag-over');
+        updateSectionDragGap(sectionBody, event.clientX, event.clientY, draggedWrappers.length);
     });
 
     container.addEventListener('dragleave', (event) => {
@@ -418,7 +480,16 @@ export function bindSectionCueDragDrop(container, {
         event.stopPropagation();
         clearSectionDragOver();
 
-        moveCueWrappersInSection(sectionBody, draggedWrappers, event.clientX, event.clientY);
+        const applied = applyItemsAtDropIntent(draggedWrappers, {
+            insertBefore: insertWrappersBefore,
+            insertAfter: insertWrappersAfter,
+            append: appendWrappersToSection
+        });
+        endDragGap();
+
+        if (!applied) {
+            moveCueWrappersInSection(sectionBody, draggedWrappers, event.clientX, event.clientY);
+        }
 
         if (typeof onCueDropped === 'function') {
             await onCueDropped();

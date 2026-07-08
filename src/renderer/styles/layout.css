@@ -409,22 +409,56 @@ body.main-waveform-resizing {
 }
 
 .top-bar {
-    display: flex;
-    justify-content: space-between; /* Pushes title/icon left, global-controls right */
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     padding: 7px 7px;
-    /* background-color: #1e1e1e; */ /* Changed from var(--background-darker) */
-    /* border-bottom: 1px solid var(--border-color); */ /* This could be the black bar if --border-color is too dark or if there's another border */
-    border: none !important; /* Overriding any potential border */
-    box-shadow: none !important; /* Ensure no shadow here either */
-    height: 60px; /* Fixed height for the top bar */
+    border: none !important;
+    box-shadow: none !important;
+    height: 60px;
     box-sizing: border-box;
 }
 
 .title-container {
     display: flex;
     align-items: center;
-    flex-grow: 1; /* Allows it to take up space and push global-controls to the right */
+    justify-self: start;
+}
+
+.mode-toggle {
+    display: flex;
+    border: 2px solid #555;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #1a1a1a;
+    justify-self: center;
+}
+
+.mode-btn {
+    border: none;
+    background: transparent;
+    color: #aaa;
+    padding: 8px 16px;
+    font-size: 0.85em;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.mode-btn.mode-btn-active-playback {
+    background: #228b22;
+    color: #fff;
+}
+
+.mode-btn.mode-btn-active-edit {
+    background: #d97706;
+    color: #fff;
+}
+
+.mode-btn:hover:not(.mode-btn-active-playback):not(.mode-btn-active-edit) {
+    background: rgba(255, 255, 255, 0.06);
+    color: #ddd;
 }
 
 .app-icon-title {
@@ -445,14 +479,15 @@ body.main-waveform-resizing {
     display: flex;
     align-items: center;
     gap: 8px;
+    justify-self: end;
 }
 
 /* Right Properties Sidebar */
 #propertiesSidebar {
     width: 320px;
-    background-color: #252526; /* Dark sidebar background */
-    border-left: 1px solid var(--border-color); /* Darker border */
-    padding: 15px;
+    background-color: #252526;
+    border-left: 1px solid var(--border-color);
+    padding: 0;
     transition: width 0.3s ease, padding 0.3s ease;
     display: flex;
     flex-direction: column;
@@ -460,6 +495,25 @@ body.main-waveform-resizing {
     box-sizing: border-box;
     min-height: 0;
     align-self: stretch;
+}
+
+#propertiesSidebar .properties-sidebar-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 14px 40px 12px 15px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: #252526;
+    z-index: 2;
+}
+
+#propertiesSidebar .properties-sidebar-header h2 {
+    margin: 0;
+    text-align: center;
+    color: var(--text-color);
+    font-size: 1.1em;
 }
 
 #propertiesSidebar.hidden {
@@ -477,23 +531,18 @@ body.main-waveform-resizing {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    position: relative; /* For close button positioning */
-    padding-bottom: 24px;
-}
-
-#propertiesSidebar h2 {
-    margin-top: 0;
-    text-align: center;
-    color: var(--text-color);
+    padding: 12px 15px 24px;
 }
 
 #closePropertiesSidebarBtn {
     position: absolute;
-    top: 10px;
-    right: 15px;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
     font-size: 1.5em;
     cursor: pointer;
     color: #aaaaaa;
+    line-height: 1;
 }
 #closePropertiesSidebarBtn:hover {
     color: #ffffff;

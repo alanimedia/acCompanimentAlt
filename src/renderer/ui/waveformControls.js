@@ -13,6 +13,7 @@ let ipcRendererBindingsModule;
 let onTrimChangeCallback = null; // Callback for trim changes
 let onSeekPlaybackCallback = null;
 let onPrepareScrubCallback = null;
+let onFinishScrubCallback = null;
 
 // --- Initialization ---
 
@@ -47,6 +48,9 @@ function initWaveformControls(dependencies) {
     if (typeof dependencies.onPrepareScrub === 'function') {
         onPrepareScrubCallback = dependencies.onPrepareScrub;
     }
+    if (typeof dependencies.onFinishScrub === 'function') {
+        onFinishScrubCallback = dependencies.onFinishScrub;
+    }
 
     // Initialize the core module first
     initializeCoreModule();
@@ -76,7 +80,8 @@ function initializeCoreModule() {
         ipcRendererBindings: ipcRendererBindingsModule,
         onTrimChange: onTrimChangeCallback,
         onSeekPlayback: onSeekPlaybackCallback,
-        onPrepareScrub: onPrepareScrubCallback
+        onPrepareScrub: onPrepareScrubCallback,
+        onFinishScrub: onFinishScrubCallback
     });
     
     console.log('WaveformControls: Core module initialized');

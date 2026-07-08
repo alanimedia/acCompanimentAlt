@@ -21,6 +21,7 @@ let getCueByIdFn = null;
 let seekCueFn = null;
 let setCueVolumeFn = null;
 let prepareScrubFn = null;
+let finishScrubFn = null;
 
 const MIN_PANEL_HEIGHT = 72;
 const MAX_PANEL_HEIGHT_RATIO = 0.55;
@@ -43,6 +44,7 @@ function init(dependencies) {
     seekCueFn = dependencies.seekCue || null;
     setCueVolumeFn = dependencies.setCueVolume || null;
     prepareScrubFn = dependencies.prepareScrub || null;
+    finishScrubFn = dependencies.finishScrubSeek || null;
 
     bindResizeHandle();
     bindHeaderControls();
@@ -282,7 +284,6 @@ function createLane(cue) {
         lastRawTime: -1,
         lastSyncAt: 0,
         isUserSeeking: false,
-        isSyncingExternalPlayhead: false,
         userSeekingTimeout: null
     };
     lanes.set(cue.id, lane);
@@ -311,35 +312,63 @@ function createLane(cue) {
             clearTimeout(lane.userSeekingTimeout);
             lane.userSeekingTimeout = setTimeout(() => {
                 lane.isUserSeeking = false;
-            }, 350);
+            }, 600);
         };
 
-        const seekLanePlayback = (progress, options = {}) => {
-            if (!seekCueFn || lane.isSyncingExternalPlayhead) return;
+        const releaseLaneUserSeeking = () => {
+            clearTimeout(lane.userSeekingTimeout);
+            lane.userSeekingTimeout = setTimeout(() => {
+                lane.isUserSeeking = false;
+            }, 150);
+        };
+
+        const seekAtClientX = (clientX, options = {}) => {
+            if (!seekCueFn) return;
             const duration = lane.wavesurfer.getDuration();
             if (!duration) return;
+            const rect = bodyEl.getBoundingClientRect();
+            if (!rect.width) return;
+            const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
             markLaneUserSeeking();
-            seekCueFn(cue.id, progress * duration, options);
+            lane.wavesurfer.seekTo(ratio);
+            seekCueFn(cue.id, ratio * duration, {
+                ...options,
+                skipScrubMute: true
+            });
         };
 
-        lane.wavesurfer.on('interaction', () => {
-            prepareScrubFn?.(cue.id);
+        let activePointerId = null;
+        bodyEl.style.touchAction = 'none';
+        bodyEl.style.cursor = 'pointer';
+
+        bodyEl.addEventListener('pointerdown', (event) => {
+            if (activePointerId != null) return;
+            event.preventDefault();
+            activePointerId = event.pointerId;
             markLaneUserSeeking();
+            try {
+                bodyEl.setPointerCapture(event.pointerId);
+            } catch (e) { /* ignore */ }
         });
 
-        lane.wavesurfer.on('seek', (progress) => {
-            seekLanePlayback(progress, { finalizeScrub: false, coalesceMs: 60 });
+        bodyEl.addEventListener('pointermove', (event) => {
+            if (event.pointerId !== activePointerId) return;
+            event.preventDefault();
+            seekAtClientX(event.clientX, { finalizeScrub: false, coalesceMs: 60 });
         });
 
-        const finalizeLaneSeek = () => {
-            if (!seekCueFn || lane.isSyncingExternalPlayhead) return;
-            const duration = lane.wavesurfer.getDuration();
-            if (!duration || typeof lane.wavesurfer.getCurrentTime !== 'function') return;
-            seekCueFn(cue.id, lane.wavesurfer.getCurrentTime(), { finalizeScrub: true });
+        const finishLanePointer = (event) => {
+            if (event.pointerId !== activePointerId) return;
+            seekAtClientX(event.clientX, { finalizeScrub: true });
+            releaseLaneUserSeeking();
+            activePointerId = null;
+            try {
+                bodyEl.releasePointerCapture(event.pointerId);
+            } catch (e) { /* ignore */ }
         };
 
-        bodyEl.addEventListener('pointerup', finalizeLaneSeek);
-        bodyEl.addEventListener('pointercancel', finalizeLaneSeek);
+        bodyEl.addEventListener('pointerup', finishLanePointer);
+        bodyEl.addEventListener('pointercancel', finishLanePointer);
 
         lane.wavesurfer.on('ready', () => {
             const duration = lane.wavesurfer.getDuration();
@@ -366,7 +395,7 @@ function createLane(cue) {
 
 function syncLanePlayhead(cueId, payload) {
     const lane = lanes.get(cueId);
-    if (!lane?.wavesurfer || lane.wavesurfer.isPlaying() || lane.isUserSeeking) return;
+    if (!lane?.wavesurfer || lane.isUserSeeking) return;
 
     const cue = lane.cue;
     const {
@@ -385,9 +414,7 @@ function syncLanePlayhead(cueId, payload) {
     if (status === 'stopped') {
         lane.lastRawTime = -1;
         const startRatio = Math.min(1, Math.max(0, (trimStartTime || 0) / fullDuration));
-        lane.isSyncingExternalPlayhead = true;
         lane.wavesurfer.seekTo(startRatio);
-        requestAnimationFrame(() => { lane.isSyncingExternalPlayhead = false; });
         if (lanes.size === 1) {
             updateMainTimeLabels(0, totalDurationSec);
         } else if (lane.timeEl) {
@@ -396,7 +423,7 @@ function syncLanePlayhead(cueId, payload) {
         return;
     }
 
-    if (status !== 'playing' && status !== 'paused' && status !== 'fading') return;
+    if (status !== 'playing' && status !== 'paused' && status !== 'paused_seek' && status !== 'fading') return;
 
     const rawTime = (trimStartTime || 0) + Math.max(0, currentTimeSec);
     const now = performance.now();
@@ -412,9 +439,7 @@ function syncLanePlayhead(cueId, payload) {
     lane.lastRawTime = rawTime;
     lane.lastSyncAt = now;
 
-    lane.isSyncingExternalPlayhead = true;
     lane.wavesurfer.seekTo(Math.min(1, Math.max(0, rawTime / fullDuration)));
-    requestAnimationFrame(() => { lane.isSyncingExternalPlayhead = false; });
 
     if (lanes.size === 1) {
         updateMainTimeLabels(currentTimeSec, totalDurationSec);
@@ -428,7 +453,7 @@ function handlePlaybackUpdate(cueId, payload, cue) {
     if (!cue || cue.type === 'playlist' || !cue.filePath) return;
 
     const status = payload?.status || 'stopped';
-    const isActive = status === 'playing' || status === 'paused' || status === 'fading';
+    const isActive = status === 'playing' || status === 'paused' || status === 'paused_seek' || status === 'fading';
 
     panelEl.classList.remove('hidden');
 

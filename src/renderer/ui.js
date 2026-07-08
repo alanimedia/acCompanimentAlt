@@ -28,7 +28,8 @@ let lastKnownDefaultShowButtonWaveform = null;
 
 // Core DOM Elements (not managed by sub-modules yet)
 let appContainer;
-let modeToggleBtn;
+let modePlaybackBtn;
+let modeEditBtn;
 let stopAllButton;
 let crossfadeToggleBtn;
 let deleteSelectedCuesBtn;
@@ -47,7 +48,7 @@ let crossfadeEnabled = false;
 
 // Core UI State
 let currentMode = 'edit'; // 'edit' or 'show'
-let shiftKeyPressed = false;
+let playbackHoldActive = false; // Hold ` / ~ to temporarily enter playback mode while in edit
 
 // App Configuration State (MOVED to appConfigUI.js)
 // App config state is now managed by appConfigUI.js module
@@ -157,6 +158,10 @@ async function init(rcvdCueStore, rcvdAudioController, rcvdElectronAPI, rcvdDrag
         setCueVolume: (cueId, volume, options) => {
             const ac = audioControllerModule?.default || audioControllerModule;
             ac?.setVolume?.(cueId, volume, options);
+        },
+        finishScrubSeek: (cueId) => {
+            const ac = audioControllerModule?.default || audioControllerModule;
+            ac?.finishScrubSeek?.(cueId);
         }
     });
     
@@ -185,7 +190,8 @@ async function init(rcvdCueStore, rcvdAudioController, rcvdElectronAPI, rcvdDrag
 
 function cacheCoreDOMElements() {
     appContainer = document.getElementById('appContainer');
-    modeToggleBtn = document.getElementById('modeToggleBtn');
+    modePlaybackBtn = document.getElementById('modePlaybackBtn');
+    modeEditBtn = document.getElementById('modeEditBtn');
     stopAllButton = document.getElementById('stopAllButton');
     crossfadeToggleBtn = document.getElementById('crossfadeToggleBtn');
     deleteSelectedCuesBtn = document.getElementById('deleteSelectedCuesBtn');
@@ -195,7 +201,8 @@ function cacheCoreDOMElements() {
 }
 
 function bindCoreEventListeners() {
-    if (modeToggleBtn) modeToggleBtn.addEventListener('click', toggleMode);
+    if (modePlaybackBtn) modePlaybackBtn.addEventListener('click', () => setAppMode('show'));
+    if (modeEditBtn) modeEditBtn.addEventListener('click', () => setAppMode('edit'));
 
     if (deleteSelectedCuesBtn) {
         deleteSelectedCuesBtn.addEventListener('click', () => {
@@ -251,15 +258,28 @@ function bindCoreEventListeners() {
     }
 
     window.addEventListener('keydown', (e) => {
-        if (e.key === 'Shift') {
-            shiftKeyPressed = true;
-            updateModeUI();
+        if (!isTildePlaybackKey(e) || playbackHoldActive) return;
+        if (currentMode !== 'edit') return;
+        playbackHoldActive = true;
+        updateModeUI();
+        if (cueGrid && typeof cueGrid.renderCues === 'function') {
+            cueGrid.renderCues();
         }
     });
     window.addEventListener('keyup', (e) => {
-        if (e.key === 'Shift') {
-            shiftKeyPressed = false;
-            updateModeUI();
+        if (!isTildePlaybackKey(e) || !playbackHoldActive) return;
+        playbackHoldActive = false;
+        updateModeUI();
+        if (cueGrid && typeof cueGrid.renderCues === 'function') {
+            cueGrid.renderCues();
+        }
+    });
+    window.addEventListener('blur', () => {
+        if (!playbackHoldActive) return;
+        playbackHoldActive = false;
+        updateModeUI();
+        if (cueGrid && typeof cueGrid.renderCues === 'function') {
+            cueGrid.renderCues();
         }
     });
 
@@ -271,18 +291,21 @@ function isPersistedEditMode() {
     return currentMode === 'edit';
 }
 
+function isTildePlaybackKey(event) {
+    if (event.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return false;
+    return event.code === 'Backquote' || event.key === '`' || event.key === '~';
+}
+
 function getCurrentAppMode() {
-    // If shift is pressed, temporarily toggle the mode.
-    // Otherwise, use the persistent currentMode.
-    if (shiftKeyPressed) {
-        return currentMode === 'edit' ? 'show' : 'edit';
+    if (playbackHoldActive && currentMode === 'edit') {
+        return 'show';
     }
     return currentMode;
 }
 
-function toggleMode() {
-    currentMode = (currentMode === 'edit') ? 'show' : 'edit';
-    shiftKeyPressed = false; // Reset shift key on manual toggle
+function setAppMode(mode) {
+    currentMode = mode === 'edit' ? 'edit' : 'show';
+    playbackHoldActive = false;
     updateModeUI();
     if (cueGrid && typeof cueGrid.renderCues === 'function') {
         cueGrid.renderCues();
@@ -291,35 +314,27 @@ function toggleMode() {
 
 function updateModeUI() {
     const effectiveMode = getCurrentAppMode();
-    // const modeToggleBtnTextSpan = document.getElementById('modeToggleBtnText'); // Span is removed
 
     if (effectiveMode === 'show') {
         appContainer.classList.remove('edit-mode');
         appContainer.classList.add('show-mode');
-        if (typeof cueGrid.clearCueSelection === 'function') {
+        // Keep multi-select when peeking playback via ` / ~; only clear on persisted playback mode.
+        if (currentMode === 'show' && typeof cueGrid.clearCueSelection === 'function') {
             cueGrid.clearCueSelection();
         }
-        if (modeToggleBtn) {
-            modeToggleBtn.classList.add('show-mode-active');
-            modeToggleBtn.classList.remove('edit-mode-active');
-            // Change the icon source instead of background image
-            const modeToggleIcon = document.getElementById('modeToggleIcon');
-            if (modeToggleIcon) {
-                modeToggleIcon.src = '../../assets/icons/edit.png';
-            }
-        }
-    } else { // 'edit'
+    } else {
         appContainer.classList.remove('show-mode');
         appContainer.classList.add('edit-mode');
-        if (modeToggleBtn) {
-            modeToggleBtn.classList.remove('show-mode-active');
-            modeToggleBtn.classList.add('edit-mode-active');
-            // Change the icon source instead of background image
-            const modeToggleIcon = document.getElementById('modeToggleIcon');
-            if (modeToggleIcon) {
-                modeToggleIcon.src = '../../assets/icons/show_light.png';
-            }
-        }
+    }
+
+    if (modePlaybackBtn) {
+        modePlaybackBtn.classList.toggle('mode-btn-active-playback', effectiveMode === 'show');
+    }
+    if (modeEditBtn) {
+        modeEditBtn.classList.toggle('mode-btn-active-edit', effectiveMode === 'edit');
+    }
+    if (stopAllButton) {
+        stopAllButton.classList.toggle('hidden', effectiveMode !== 'show');
     }
     
     if (typeof cueGrid.setDeleteSelectedButton === 'function') {
@@ -635,7 +650,7 @@ export {
     // Core UI utility functions passed to sub-modules as part of uiCoreInterface
     isEditMode,
     // getCurrentAppConfig, // Removed, use uiCoreInterface.getCurrentAppConfig
-    updateModeUI, // If called by renderer.js (e.g. after shift key for testing)
+    updateModeUI, // If called by renderer.js (e.g. after ` / ~ hold for temporary playback)
 
     // New global drop handlers (called by dragDropHandler.js)
     handleSingleFileDrop,
@@ -645,6 +660,6 @@ export {
     isCrossfadeEnabled, // Export crossfade state
 
     updateCueButtonTimeDisplay, // Export the new function
-    getCurrentAppMode, // Export for other modules if they need to know mode without shift key override
+    getCurrentAppMode, // Export for other modules if they need to know mode without ` / ~ hold override
     isUIFullyInitialized // EXPORT NEW GETTER
 };
