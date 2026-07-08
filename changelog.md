@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.4
+
+### Added
+- Web remote **WAVE** toolbar toggle matching Electron: manual on/off for the bottom waveform panel
+- Close button on remote waveform panel header
+
+### Changed
+- Remote waveform panel uses a fixed bottom overlay with reserved grid padding when enabled (no layout shift)
+- Waveform panel no longer auto-opens when playback starts; lanes update only while the panel is toggled on
+- Remote scroll position preserved when cues update during playback
+
 ## 1.5.3
 
 ### Added

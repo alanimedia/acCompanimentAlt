@@ -51,6 +51,10 @@
             flex: 1 1 auto;
             min-height: 0;
             overflow-y: auto;
+            overflow-anchor: none;
+            -webkit-overflow-scrolling: touch;
+            box-sizing: border-box;
+            scroll-padding-bottom: var(--remote-waveform-panel-height, 0px);
         }
         #cueGridRemote {
             display: flex;
@@ -61,6 +65,9 @@
             padding: 10px;
             margin: 0 auto;
             box-sizing: border-box;
+        }
+        body.remote-waveform-panel-visible #cueGridRemote {
+            padding-bottom: calc(var(--remote-waveform-panel-height, 180px) + 10px);
         }
         .remote-section-block {
             width: 100%;
@@ -175,7 +182,7 @@
         }
         .cue-button-remote {
             aspect-ratio: auto;
-            min-height: 88px;
+            min-height: 140px;
             background-color: #3a3a3a;
             border: 1px solid #555555;
             border-radius: 6px;
@@ -253,7 +260,9 @@
             height: 100%;
         }
         .cue-button-remote .waveform-wrap.hidden {
-            display: none;
+            display: block;
+            visibility: hidden;
+            pointer-events: none;
         }
         .cue-button-remote .name {
             font-weight: bold;
@@ -290,7 +299,7 @@
             align-items: stretch;
             gap: 6px;
             width: 100%;
-            min-height: 88px;
+            min-height: 140px;
         }
         .cue-remote-wrapper .cue-button-remote {
             flex: 1 1 auto;
@@ -357,9 +366,59 @@
             height: 40px;
         }
 
-        /* Bottom waveform panel (matches Electron main panel) */
+        #remoteWaveformToolbarBtn {
+            padding: 0;
+            width: 50px;
+            height: 70px;
+            border: 1px solid #666;
+            border-radius: 5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 2px;
+            transition: all 0.2s ease;
+            color: #ffffff;
+            background-color: #555;
+            cursor: pointer;
+        }
+        #remoteWaveformToolbarBtn.hidden {
+            display: none;
+        }
+        #remoteWaveformToolbarBtn.main-waveform-visible {
+            background-color: #6d28d9;
+            border-color: #7c3aed;
+        }
+        #remoteWaveformToolbarBtn.main-waveform-hidden {
+            background-color: #555;
+            border-color: #666;
+        }
+        #remoteWaveformToolbarBtn.main-waveform-visible:hover {
+            background-color: #7c3aed;
+        }
+        #remoteWaveformToolbarBtn.main-waveform-hidden:hover {
+            background-color: #666;
+        }
+        #remoteWaveformToolbarBtn .btn-label {
+            font-size: 8px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+            letter-spacing: 0.5px;
+            margin-top: 1px;
+        }
+        #remoteWaveformToolbarBtn .btn-icon-svg {
+            width: 26px;
+            height: 26px;
+        }
+
+        /* Bottom waveform panel (fixed overlay — grid keeps full height, no layout shift) */
         #remoteWaveformPanel {
-            flex: 0 0 auto;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 30;
             display: flex;
             flex-direction: column;
             width: 100%;
@@ -417,6 +476,24 @@
         }
         #remoteWaveformTime {
             font-variant-numeric: tabular-nums;
+        }
+        .remote-waveform-header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .remote-waveform-close-btn {
+            background: transparent;
+            border: none;
+            color: #aaaaaa;
+            font-size: 1.25em;
+            line-height: 1;
+            padding: 0 4px;
+            cursor: pointer;
+        }
+        .remote-waveform-close-btn:hover {
+            color: #ffffff;
         }
         #remoteWaveformLanes {
             flex: 1 1 auto;
@@ -939,6 +1016,12 @@
         </div>
         <div class="remote-header-right">
             <button type="button" id="settingsBtnRemote" class="header-icon-btn hidden" title="Global settings">⚙</button>
+            <button type="button" id="remoteWaveformToolbarBtn" class="remote-waveform-toolbar-btn main-waveform-hidden hidden" title="Show waveform panel below cue grid">
+                <svg class="btn-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path fill="currentColor" d="M2 12h2l2-7 3 14 3-10 2 6 2-3h2"/>
+                </svg>
+                <span class="btn-label">WAVE</span>
+            </button>
             <button id="stopAllButtonRemote">
                 <img src="../../assets/icons/dont panic.png" alt="Stop All" class="btn-icon-remote">
             </button>
@@ -959,7 +1042,10 @@
         </div>
         <div class="remote-waveform-header">
             <span id="remoteWaveformTitle">Waveform</span>
-            <span id="remoteWaveformTime"></span>
+            <div class="remote-waveform-header-right">
+                <span id="remoteWaveformTime"></span>
+                <button type="button" id="remoteWaveformCloseBtn" class="remote-waveform-close-btn" title="Hide waveform panel">&times;</button>
+            </div>
         </div>
         <div id="remoteWaveformLanes"></div>
     </div>
@@ -1134,7 +1220,10 @@
         const ws = new WebSocket(`${wsProtocol}//${window.location.host}`);
 
         const cueGridRemote = document.getElementById('cueGridRemote');
+        const remoteMain = document.getElementById('remoteMain');
         const stopAllButtonRemote = document.getElementById('stopAllButtonRemote');
+        const remoteWaveformToolbarBtn = document.getElementById('remoteWaveformToolbarBtn');
+        const remoteWaveformCloseBtn = document.getElementById('remoteWaveformCloseBtn');
         const remoteWaveformPanel = document.getElementById('remoteWaveformPanel');
         const remoteWaveformLanes = document.getElementById('remoteWaveformLanes');
         const remoteWaveformTitle = document.getElementById('remoteWaveformTitle');
@@ -1168,6 +1257,8 @@
         const waveformPeaksCache = new Map();
         const remoteWaveformLaneMap = new Map();
         const remoteCueMeterLevels = {};
+        let remoteWaveformPanelEnabled = false;
+        let remoteWaveformEnabledInitialized = false;
         let remoteLanesResizeRaf = null;
         let remotePanelHeight = parseInt(localStorage.getItem('remoteWaveformHeight') || '', 10);
         if (!Number.isFinite(remotePanelHeight)) {
@@ -1223,6 +1314,7 @@
             if (editModeBanner) editModeBanner.classList.toggle('hidden', remoteMode !== 'edit');
             if (settingsBtnRemote) settingsBtnRemote.classList.toggle('hidden', remoteMode !== 'edit');
             if (stopAllButtonRemote) stopAllButtonRemote.classList.toggle('hidden', remoteMode === 'edit');
+            if (remoteWaveformToolbarBtn) remoteWaveformToolbarBtn.classList.toggle('hidden', remoteMode === 'edit');
             closeAllPanels();
             renderAllCuesRemote(Object.values(currentCues));
         }
@@ -1499,7 +1591,13 @@
             bind('cfgDefaultStopAllFade', 'defaultStopAllFadeOutTime', v => parseInt(v, 10) || 0);
             bind('cfgCrossfadeTime', 'crossfadeTime', v => parseInt(v, 10) || 2000);
             bind('cfgDefaultShowButtonWaveform', 'defaultShowButtonWaveform');
-            bind('cfgMainWaveformEnabled', 'mainWaveformEnabled');
+            const cfgMainWaveformEnabled = document.getElementById('cfgMainWaveformEnabled');
+            if (cfgMainWaveformEnabled) {
+                cfgMainWaveformEnabled.addEventListener('change', () => {
+                    debouncedSaveConfigPatch({ mainWaveformEnabled: cfgMainWaveformEnabled.checked });
+                    setRemoteWaveformPanelEnabled(cfgMainWaveformEnabled.checked, { persistLocal: true, persistConfig: false });
+                });
+            }
         }
 
         if (modePlaybackBtn) modePlaybackBtn.addEventListener('click', () => setRemoteMode('playback'));
@@ -1554,6 +1652,10 @@
                 } else if (message.type === 'config_snapshot') {
                     if (message.payload) {
                         appConfigRemote = { ...appConfigRemote, ...message.payload };
+                        if (!remoteWaveformEnabledInitialized && message.payload.mainWaveformEnabled !== undefined) {
+                            setRemoteWaveformPanelEnabled(message.payload.mainWaveformEnabled !== false, { persistLocal: false, persistConfig: false });
+                            remoteWaveformEnabledInitialized = true;
+                        }
                         if (!remoteSettingsPanel?.classList.contains('hidden')) {
                             populateSettingsForm();
                         }
@@ -1703,6 +1805,7 @@
             }
             syncRemoteLanesLayout();
             scheduleRemoteLanesResizeRedraw();
+            scheduleRemoteMainBottomPaddingSync();
             localStorage.setItem('remoteWaveformHeight', String(remotePanelHeight));
         }
 
@@ -1746,20 +1849,134 @@
             }, { passive: false });
         }
 
+        function getRemoteScrollContainer() {
+            return remoteMain || cueGridRemote;
+        }
+
+        function captureRemoteScrollPosition() {
+            const container = getRemoteScrollContainer();
+            if (!container) return null;
+            return { top: container.scrollTop, left: container.scrollLeft };
+        }
+
+        function restoreRemoteScrollPosition(saved) {
+            if (!saved) return;
+            const container = getRemoteScrollContainer();
+            if (!container) return;
+            const apply = () => {
+                container.scrollTop = saved.top;
+                container.scrollLeft = saved.left;
+            };
+            apply();
+            requestAnimationFrame(() => {
+                apply();
+                requestAnimationFrame(apply);
+            });
+        }
+
+        function isRemoteWaveformPanelEnabled() {
+            return remoteWaveformPanelEnabled;
+        }
+
+        function updateRemoteWaveformToggleButton() {
+            if (!remoteWaveformToolbarBtn) return;
+            remoteWaveformToolbarBtn.classList.toggle('main-waveform-visible', remoteWaveformPanelEnabled);
+            remoteWaveformToolbarBtn.classList.toggle('main-waveform-hidden', !remoteWaveformPanelEnabled);
+            remoteWaveformToolbarBtn.title = remoteWaveformPanelEnabled
+                ? 'Hide waveform panel below cue grid'
+                : 'Show waveform panel below cue grid';
+            const cfgMainWaveformEnabled = document.getElementById('cfgMainWaveformEnabled');
+            if (cfgMainWaveformEnabled && cfgMainWaveformEnabled.checked !== remoteWaveformPanelEnabled) {
+                cfgMainWaveformEnabled.checked = remoteWaveformPanelEnabled;
+            }
+        }
+
+        function clearAllRemoteLanes() {
+            [...remoteWaveformLaneMap.keys()].forEach((cueId) => {
+                const lane = remoteWaveformLaneMap.get(cueId);
+                lane?.laneEl?.remove();
+                remoteWaveformLaneMap.delete(cueId);
+            });
+            updateRemotePanelHeader();
+            syncRemoteLanesLayout();
+        }
+
+        function setRemoteWaveformPanelEnabled(enabled, options = {}) {
+            const { persistLocal = true, persistConfig = false } = options;
+            const nextEnabled = enabled === true;
+            if (remoteWaveformPanelEnabled === nextEnabled && remoteWaveformEnabledInitialized) {
+                updateRemoteWaveformToggleButton();
+                return;
+            }
+
+            remoteWaveformPanelEnabled = nextEnabled;
+            remoteWaveformEnabledInitialized = true;
+            remoteWaveformPanel?.classList.toggle('hidden', !nextEnabled);
+
+            if (persistLocal) {
+                localStorage.setItem('remoteWaveformEnabled', nextEnabled ? 'true' : 'false');
+            }
+
+            updateRemoteWaveformToggleButton();
+
+            if (!nextEnabled) {
+                clearAllRemoteLanes();
+            } else {
+                syncPlayingCuesToRemotePanel();
+            }
+
+            scheduleRemoteMainBottomPaddingSync();
+
+            if (persistConfig) {
+                debouncedSaveConfigPatch({ mainWaveformEnabled: nextEnabled });
+            }
+        }
+
+        function getRemoteWaveformPanelHeight() {
+            if (!remoteWaveformPanelEnabled || !remoteWaveformPanel || remoteWaveformPanel.classList.contains('hidden')) {
+                return 0;
+            }
+            const measured = remoteWaveformPanel.getBoundingClientRect().height;
+            return Math.max(measured, remotePanelHeight || 0, remoteWaveformPanel.offsetHeight || 0);
+        }
+
+        function syncRemoteMainBottomPadding() {
+            const panelHeight = getRemoteWaveformPanelHeight();
+            const root = document.documentElement;
+
+            if (panelHeight > 0) {
+                root.style.setProperty('--remote-waveform-panel-height', `${Math.ceil(panelHeight)}px`);
+                document.body.classList.add('remote-waveform-panel-visible');
+            } else {
+                root.style.removeProperty('--remote-waveform-panel-height');
+                document.body.classList.remove('remote-waveform-panel-visible');
+            }
+
+            if (remoteMain) {
+                remoteMain.style.paddingBottom = '';
+            }
+            if (cueGridRemote && panelHeight <= 0) {
+                cueGridRemote.style.paddingBottom = '';
+            }
+        }
+
+        function scheduleRemoteMainBottomPaddingSync() {
+            requestAnimationFrame(() => {
+                syncRemoteMainBottomPadding();
+                requestAnimationFrame(syncRemoteMainBottomPadding);
+            });
+        }
+
         function updateRemotePanelHeader() {
+            const savedScroll = captureRemoteScrollPosition();
             const count = remoteWaveformLaneMap.size;
             if (!remoteWaveformTitle || !remoteWaveformTime) return;
 
             if (count === 0) {
                 remoteWaveformTitle.textContent = 'Waveform';
                 remoteWaveformTime.textContent = '';
-                remoteWaveformPanel?.classList.add('hidden');
-                return;
-            }
-
-            remoteWaveformPanel?.classList.remove('hidden');
-
-            if (count === 1) {
+                remoteWaveformTime.style.display = '';
+            } else if (count === 1) {
                 const lane = remoteWaveformLaneMap.values().next().value;
                 remoteWaveformTitle.textContent = lane.cue?.name || 'Cue';
                 remoteWaveformTime.style.display = '';
@@ -1767,6 +1984,7 @@
                 remoteWaveformTitle.textContent = `${count} cues playing`;
                 remoteWaveformTime.style.display = 'none';
             }
+            restoreRemoteScrollPosition(savedScroll);
         }
 
         function syncRemoteLanesLayout() {
@@ -1986,6 +2204,13 @@
         }
 
         async function handleRemoteWaveformUpdate(cue) {
+            if (!isRemoteWaveformPanelEnabled()) {
+                if (cue?.id && cue.status === 'stopped' && remoteWaveformLaneMap.has(cue.id)) {
+                    removeRemoteLane(cue.id);
+                }
+                return;
+            }
+
             if (!cue?.id || !cue.hasWaveform) {
                 if (cue?.status === 'stopped') removeRemoteLane(cue.id);
                 return;
@@ -2540,9 +2765,11 @@
         }
 
         function renderPlaybackGridRemote(cues) {
+            const savedScroll = captureRemoteScrollPosition();
             cueGridRemote.innerHTML = '';
             if ((!cues || cues.length === 0) && currentSections.length === 0) {
                 cueGridRemote.innerHTML = '<p style="text-align: center; color: #888;">No cues available.</p>';
+                restoreRemoteScrollPosition(savedScroll);
                 return;
             }
             const cueMap = new Map(cues.map(cue => [cue.id, cue]));
@@ -2563,6 +2790,7 @@
                     appendPlaybackCueCard(cue, body);
                 }
             });
+            restoreRemoteScrollPosition(savedScroll);
         }
 
         function appendPlaybackCueCard(cue, parentEl) {
@@ -2606,10 +2834,12 @@
         }
 
         function renderEditGridRemote(cues) {
+            const savedScroll = captureRemoteScrollPosition();
             cueGridRemote.innerHTML = '';
             cueGridRemote.classList.remove('drag-active');
             if ((!cues || cues.length === 0) && currentSections.length === 0) {
                 cueGridRemote.innerHTML = '<p style="text-align: center; color: #888;">No cues available.</p>';
+                restoreRemoteScrollPosition(savedScroll);
                 return;
             }
             const cueMap = new Map(cues.map(cue => [cue.id, cue]));
@@ -2641,6 +2871,7 @@
             bindRemoteSectionCueDragDrop();
             bindRemoteSectionBlockDragDrop();
             refreshAllRemoteReorderButtons();
+            restoreRemoteScrollPosition(savedScroll);
         }
 
         function appendEditCueCard(cue, parentEl) {
@@ -3034,6 +3265,7 @@
         }
 
         function updateCueButtonRemote(cue) {
+            const savedScroll = captureRemoteScrollPosition();
             const wrapper = cueGridRemote.querySelector(`.cue-remote-wrapper[data-cue-id="${cue.id}"]`);
             const button = wrapper?.querySelector('.cue-button-remote') || cueGridRemote.querySelector(`.cue-button-remote[data-cue-id="${cue.id}"]`);
             const mergedCue = { ...currentCues[cue.id], ...cue };
@@ -3044,6 +3276,7 @@
             }
             updateRemoteCueMeter(mergedCue);
             handleRemoteWaveformUpdate(mergedCue);
+            restoreRemoteScrollPosition(savedScroll);
         }
 
         function updateButtonStatusClass(button, status, cue) {
@@ -3061,11 +3294,30 @@
         if (stopAllButtonRemote) {
             stopAllButtonRemote.addEventListener('click', debouncedStopAllCues);
         }
+        if (remoteWaveformToolbarBtn) {
+            remoteWaveformToolbarBtn.addEventListener('click', () => {
+                setRemoteWaveformPanelEnabled(!remoteWaveformPanelEnabled, { persistLocal: true, persistConfig: true });
+            });
+        }
+        if (remoteWaveformCloseBtn) {
+            remoteWaveformCloseBtn.addEventListener('click', () => {
+                setRemoteWaveformPanelEnabled(false, { persistLocal: true, persistConfig: true });
+            });
+        }
+
+        const storedRemoteWaveformEnabled = localStorage.getItem('remoteWaveformEnabled');
+        if (storedRemoteWaveformEnabled === 'true' || storedRemoteWaveformEnabled === 'false') {
+            setRemoteWaveformPanelEnabled(storedRemoteWaveformEnabled === 'true', { persistLocal: false, persistConfig: false });
+            remoteWaveformEnabledInitialized = true;
+        }
 
         setRemotePanelHeight(remotePanelHeight);
         bindRemotePanelResize();
         if (remoteWaveformLanes && typeof ResizeObserver !== 'undefined') {
             new ResizeObserver(() => scheduleRemoteLanesResizeRedraw()).observe(remoteWaveformLanes);
+        }
+        if (remoteWaveformPanel && typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(() => scheduleRemoteMainBottomPaddingSync()).observe(remoteWaveformPanel);
         }
         window.addEventListener('resize', () => {
             const clamped = clampRemotePanelHeight(remotePanelHeight);
@@ -3075,9 +3327,9 @@
                     remoteWaveformPanel.style.height = `${remotePanelHeight}px`;
                 }
             }
+            scheduleRemoteMainBottomPaddingSync();
             scheduleRemoteLanesResizeRedraw();
         });
-
     </script>
 </body>
 </html>
