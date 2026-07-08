@@ -127,7 +127,7 @@ async function createWindow() {
     // Added: Initialize httpServer with app config
 
     const currentAppConfig = appConfigManager.getConfig();
-    httpServer.initialize(cueManager, mainWindow, currentAppConfig);
+    httpServer.initialize(cueManager, mainWindow, currentAppConfig, workspaceManager, appConfigManager);
 
 
 

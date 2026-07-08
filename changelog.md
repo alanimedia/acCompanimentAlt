@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.5.2
+
+### Added
+- Remote **Playback / Edit** mode toggle with per-cue editing (name, volume, color, reorder) and global settings panel
+- WebSocket write actions from remote clients: `update_cue`, `reorder_cues`, `update_config`, `get_cue_detail`, `delete_cue`
+- `remoteEditUtils.js` for patch sanitization, cue merge, and config snapshots
+- Touch-friendly reorder on iPad: ◀ ▶ buttons, long-press drag, per-card settings cog
+- Live volume meter beside playing cues on remote (matches Electron cue grid)
+- Volume percentage on remote waveform lane headers during playback
+
+### Changed
+- Remote waveform panel uses a thin drag handle for resize (removed +/− size buttons)
+- Remote edit cards use a two-row volume layout to prevent text overflow on narrow screens
+- Waveform lane rendering caches static bars and redraws only the playhead to reduce flicker
+
+### Fixed
+- Multi-cue remote waveform panel flashing on desktop from scrollbar/layout feedback loops
+- iOS Safari viewport clipping for bottom waveform panel (`100dvh`, safe-area insets)
+- Remote cue saves now merge patches before write (prevents full cue replacement data loss)
+
 ## 1.5.1
 
 ### Added
