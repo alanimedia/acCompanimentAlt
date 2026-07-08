@@ -30,8 +30,8 @@ let lastExternalSyncRawTime = -1;
 let lastExternalSyncAt = 0;
 let onSeekPlaybackCallback = null;
 let onPrepareScrubCallback = null;
+let onFinishScrubCallback = null;
 let isUserSeekingPlayback = false;
-let isSyncingExternalPlayhead = false;
 let userSeekingClearTimeout = null;
 
 // Waveform initialization with debouncing
@@ -58,6 +58,9 @@ function initWaveformCore(dependencies) {
     }
     if (typeof dependencies.onPrepareScrub === 'function') {
         onPrepareScrubCallback = dependencies.onPrepareScrub;
+    }
+    if (typeof dependencies.onFinishScrub === 'function') {
+        onFinishScrubCallback = dependencies.onFinishScrub;
     }
     
     console.log('WaveformCore: Initialized with dependencies:', {
@@ -98,12 +101,18 @@ function markUserSeekingPlayback() {
     clearTimeout(userSeekingClearTimeout);
     userSeekingClearTimeout = setTimeout(() => {
         isUserSeekingPlayback = false;
-    }, 350);
+    }, 600);
 }
 
 function invokePrepareScrub(cueId) {
     if (typeof onPrepareScrubCallback === 'function' && cueId != null) {
         onPrepareScrubCallback(cueId);
+    }
+}
+
+function invokeFinishScrub(cueId) {
+    if (typeof onFinishScrubCallback === 'function' && cueId != null) {
+        onFinishScrubCallback(cueId);
     }
 }
 
@@ -486,47 +495,68 @@ function setupCoreWaveformEvents(cue, regionsPlugin, setupRegionEventsCallback, 
         }
     });
     
-    // Handle clicks for seeking — WaveSurfer also emits `seek` for click/drag; avoid double seek.
-    wavesurferInstance.on('click', (relativeX) => {
-        if (!wavesurferInstance) return;
-        const duration = wavesurferInstance.getDuration();
-        const seekTime = relativeX * duration;
-        if (seekTime >= 0 && seekTime <= duration) {
-            syncPlaybackTimeWithUI(seekTime);
-            if (waveformDisplayDiv) {
-                waveformDisplayDiv.focus();
-            }
+    // Handle clicks for focus only — playback seek uses pointer handlers below.
+    wavesurferInstance.on('click', () => {
+        if (waveformDisplayDiv) {
+            waveformDisplayDiv.focus();
         }
     });
 
-    wavesurferInstance.on('interaction', () => {
-        if (cue?.id) {
-            invokePrepareScrub(cue.id);
-            markUserSeekingPlayback();
-        }
-    });
+    if (waveformDisplayDiv && cue?.id) {
+        let activePointerId = null;
+        waveformDisplayDiv.style.touchAction = 'none';
 
-    wavesurferInstance.on('seek', (progress) => {
-        if (!wavesurferInstance || isSyncingExternalPlayhead || !cue?.id) return;
-        const duration = wavesurferInstance.getDuration();
-        if (!duration) return;
-        const seekTime = progress * duration;
-        if (seekTime >= 0 && seekTime <= duration) {
-            syncPlaybackTimeWithUI(seekTime);
-            invokeSeekPlayback(cue.id, seekTime, { finalizeScrub: false, coalesceMs: 60 });
-        }
-    });
-
-    if (waveformDisplayDiv) {
-        const finalizeWaveformSeek = () => {
+        const seekAtClientX = (clientX, options = {}) => {
             if (!wavesurferInstance || !cue?.id) return;
-            const seekTime = wavesurferInstance.getCurrentTime?.();
-            if (typeof seekTime === 'number') {
-                invokeSeekPlayback(cue.id, seekTime, { finalizeScrub: true });
+            const duration = wavesurferInstance.getDuration();
+            if (!duration) return;
+            const rect = waveformDisplayDiv.getBoundingClientRect();
+            if (!rect.width) return;
+            const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+            const seekTime = ratio * duration;
+            markUserSeekingPlayback();
+            wavesurferInstance.seekTo(ratio);
+            syncPlaybackTimeWithUI(seekTime);
+            if (typeof onSeekPlaybackCallback === 'function') {
+                onSeekPlaybackCallback(cue.id, seekTime, { ...options, skipScrubMute: true });
             }
         };
-        waveformDisplayDiv.addEventListener('pointerup', finalizeWaveformSeek);
-        waveformDisplayDiv.addEventListener('pointercancel', finalizeWaveformSeek);
+
+        const releaseUserSeekingPlayback = () => {
+            clearTimeout(userSeekingClearTimeout);
+            userSeekingClearTimeout = setTimeout(() => {
+                isUserSeekingPlayback = false;
+            }, 150);
+        };
+
+        waveformDisplayDiv.addEventListener('pointerdown', (event) => {
+            if (activePointerId != null) return;
+            event.preventDefault();
+            activePointerId = event.pointerId;
+            markUserSeekingPlayback();
+            try {
+                waveformDisplayDiv.setPointerCapture(event.pointerId);
+            } catch (e) { /* ignore */ }
+        });
+
+        waveformDisplayDiv.addEventListener('pointermove', (event) => {
+            if (event.pointerId !== activePointerId) return;
+            event.preventDefault();
+            seekAtClientX(event.clientX, { finalizeScrub: false, coalesceMs: 60 });
+        });
+
+        const finishPointer = (event) => {
+            if (event.pointerId !== activePointerId) return;
+            seekAtClientX(event.clientX, { finalizeScrub: true });
+            releaseUserSeekingPlayback();
+            activePointerId = null;
+            try {
+                waveformDisplayDiv.releasePointerCapture(event.pointerId);
+            } catch (e) { /* ignore */ }
+        };
+
+        waveformDisplayDiv.addEventListener('pointerup', finishPointer);
+        waveformDisplayDiv.addEventListener('pointercancel', finishPointer);
     }
     
     // Handle playback state changes
@@ -568,7 +598,6 @@ function updateExternalPlaybackTimeLabels(currentTimeSec, totalDurationSec) {
 function syncPlayheadFromPlayback(payload) {
     if (!wavesurferInstance) return;
     if (isUserSeekingPlayback) return;
-    if (wavesurferInstance.isPlaying()) return;
 
     const {
         currentTimeSec = 0,
@@ -590,14 +619,12 @@ function syncPlayheadFromPlayback(payload) {
     if (status === 'stopped') {
         lastExternalSyncRawTime = -1;
         const startRatio = Math.min(1, Math.max(0, (trimStartTime || 0) / fullDuration));
-        isSyncingExternalPlayhead = true;
         wavesurferInstance.seekTo(startRatio);
-        requestAnimationFrame(() => { isSyncingExternalPlayhead = false; });
         updateExternalPlaybackTimeLabels(0, totalDurationSec);
         return;
     }
 
-    if (status !== 'playing' && status !== 'paused' && status !== 'fading') {
+    if (status !== 'playing' && status !== 'paused' && status !== 'paused_seek' && status !== 'fading') {
         return;
     }
 
@@ -609,9 +636,7 @@ function syncPlayheadFromPlayback(payload) {
     lastExternalSyncRawTime = rawTime;
     lastExternalSyncAt = now;
 
-    isSyncingExternalPlayhead = true;
     wavesurferInstance.seekTo(Math.min(1, Math.max(0, rawTime / fullDuration)));
-    requestAnimationFrame(() => { isSyncingExternalPlayhead = false; });
     updateExternalPlaybackTimeLabels(currentTimeSec, totalDurationSec);
 }
 

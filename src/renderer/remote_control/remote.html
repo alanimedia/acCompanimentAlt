@@ -750,7 +750,6 @@
         }
         body.remote-reorder-active {
             overflow: hidden;
-            touch-action: none;
         }
         body.remote-reorder-active #remoteMain {
             touch-action: none;
@@ -1010,8 +1009,16 @@
             margin-top: 16px;
         }
         .cue-edit-card.dragging { opacity: 0.55; }
-        .cue-edit-card.drag-insert-before { box-shadow: -4px 0 0 0 #d97706; }
-        .cue-edit-card.drag-insert-after { box-shadow: 4px 0 0 0 #d97706; }
+        .remote-drag-gap-placeholder {
+            width: 100%;
+            min-height: 150px;
+            border: 2px dashed rgba(217, 119, 6, 0.8);
+            border-radius: 8px;
+            background: rgba(217, 119, 6, 0.16);
+            box-sizing: border-box;
+            pointer-events: none;
+            align-self: start;
+        }
         #cueGridRemote.drag-active { cursor: grabbing; }
     </style>
 </head>
@@ -1313,7 +1320,7 @@
         }, 500);
 
         function isActivePlaybackStatus(status) {
-            return status === 'playing' || status === 'paused' || status === 'fading';
+            return status === 'playing' || status === 'paused' || status === 'paused_seek' || status === 'fading';
         }
 
         function mergeRemotePlaybackState(prevCue, nextCue) {
@@ -1751,10 +1758,7 @@
                     }
                 } else if (message.type === 'remote_cue_update') {
                     if (currentCues[message.cue.id]) {
-                        const mergedCue = mergeRemotePlaybackState(
-                            currentCues[message.cue.id],
-                            { ...currentCues[message.cue.id], ...message.cue }
-                        );
+                        const mergedCue = { ...currentCues[message.cue.id], ...message.cue };
                         currentCues[message.cue.id] = mergedCue;
                         if (remoteMode === 'playback') {
                             updateCueButtonRemote(mergedCue);
@@ -2217,7 +2221,18 @@
                 clearTimeout(lane.userSeekingTimeout);
                 lane.userSeekingTimeout = setTimeout(() => {
                     lane.isUserSeeking = false;
-                }, 400);
+                    const cueData = currentCues[lane.cue.id] || lane.cue;
+                    redrawRemoteLane(cueData);
+                }, 600);
+            };
+
+            const releaseUserSeeking = () => {
+                clearTimeout(lane.userSeekingTimeout);
+                lane.userSeekingTimeout = setTimeout(() => {
+                    lane.isUserSeeking = false;
+                    const cueData = currentCues[lane.cue.id] || lane.cue;
+                    redrawRemoteLane(cueData);
+                }, 150);
             };
 
             const sendSeek = (positionSec, { finalize = true, force = false } = {}) => {
@@ -2233,7 +2248,8 @@
                 sendRemoteAction('seek_cue', {
                     cueId: lane.cue.id,
                     positionSec,
-                    finalizeScrub: finalize
+                    finalizeScrub: finalize,
+                    skipScrubMute: true
                 });
             };
 
@@ -2242,7 +2258,6 @@
                 event.preventDefault();
                 activePointerId = event.pointerId;
                 wrap.setPointerCapture(event.pointerId);
-                sendRemoteAction('prepare_seek', { cueId: lane.cue.id });
                 markUserSeeking();
             });
 
@@ -2256,6 +2271,7 @@
                 if (event.pointerId !== activePointerId) return;
                 const positionSec = lane.pendingSeekPosition ?? computeSeekPosition(event.clientX);
                 sendSeek(positionSec, { finalize: true, force: true });
+                releaseUserSeeking();
                 activePointerId = null;
                 try {
                     wrap.releasePointerCapture(event.pointerId);
@@ -2264,6 +2280,10 @@
 
             wrap.addEventListener('pointerup', finishPointer);
             wrap.addEventListener('pointercancel', finishPointer);
+            wrap.addEventListener('lostpointercapture', (event) => {
+                if (event.pointerId !== activePointerId) return;
+                finishPointer(event);
+            });
         }
 
         function getCueDurationForDisplay(cue) {
@@ -2682,14 +2702,41 @@
 
             for (const card of targets) {
                 const rect = card.getBoundingClientRect();
-                const inRow = clientY >= rect.top && clientY <= rect.bottom;
-                if (!inRow) continue;
-                if (clientX < rect.left + rect.width / 2) {
-                    insertBeforeNode = card;
-                } else {
-                    insertAfterNode = card;
+                if (clientX >= rect.left && clientX <= rect.right
+                    && clientY >= rect.top && clientY <= rect.bottom) {
+                    if (clientX < rect.left + rect.width / 2) {
+                        insertBeforeNode = card;
+                    } else {
+                        insertAfterNode = card;
+                    }
+                    break;
                 }
-                break;
+            }
+
+            if (!insertBeforeNode && !insertAfterNode && targets.length > 0) {
+                let closest = null;
+                let closestDist = Infinity;
+                for (const card of targets) {
+                    const rect = card.getBoundingClientRect();
+                    const centerY = rect.top + rect.height / 2;
+                    const dist = Math.abs(clientY - centerY);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closest = card;
+                    }
+                }
+                if (closest) {
+                    const rect = closest.getBoundingClientRect();
+                    if (clientY < rect.top) {
+                        insertBeforeNode = closest;
+                    } else if (clientY > rect.bottom) {
+                        insertAfterNode = closest;
+                    } else if (clientX < rect.left + rect.width / 2) {
+                        insertBeforeNode = closest;
+                    } else {
+                        insertAfterNode = closest;
+                    }
+                }
             }
 
             if (insertBeforeNode) {
@@ -2699,6 +2746,177 @@
             } else {
                 appendRemoteCardsToSection(sectionBody, cards);
             }
+        }
+
+        let remoteDragGapState = null;
+
+        const REMOTE_DRAG_SCROLL_EDGE_PX = 64;
+        const REMOTE_DRAG_SCROLL_MAX_SPEED = 20;
+        let remoteDragScrollContainer = null;
+        let remoteDragScrollRaf = null;
+        let remoteDragScrollPointerY = null;
+        let remoteDragScrollDragOverHandler = null;
+        let remoteDragScrollWheelHandler = null;
+
+        function tickRemoteDragAutoScroll() {
+            if (!remoteDragScrollContainer || remoteDragScrollPointerY == null) {
+                remoteDragScrollRaf = null;
+                return;
+            }
+            const rect = remoteDragScrollContainer.getBoundingClientRect();
+            let delta = 0;
+            if (remoteDragScrollPointerY < rect.top + REMOTE_DRAG_SCROLL_EDGE_PX) {
+                const intensity = (rect.top + REMOTE_DRAG_SCROLL_EDGE_PX - remoteDragScrollPointerY) / REMOTE_DRAG_SCROLL_EDGE_PX;
+                delta = -REMOTE_DRAG_SCROLL_MAX_SPEED * Math.min(1, Math.max(0, intensity));
+            } else if (remoteDragScrollPointerY > rect.bottom - REMOTE_DRAG_SCROLL_EDGE_PX) {
+                const intensity = (remoteDragScrollPointerY - (rect.bottom - REMOTE_DRAG_SCROLL_EDGE_PX)) / REMOTE_DRAG_SCROLL_EDGE_PX;
+                delta = REMOTE_DRAG_SCROLL_MAX_SPEED * Math.min(1, Math.max(0, intensity));
+            }
+            if (delta !== 0) {
+                remoteDragScrollContainer.scrollTop += delta;
+            }
+            remoteDragScrollRaf = requestAnimationFrame(tickRemoteDragAutoScroll);
+        }
+
+        function updateRemoteDragAutoScrollPointer(clientY) {
+            if (!remoteDragScrollContainer || clientY == null) return;
+            remoteDragScrollPointerY = clientY;
+            if (!remoteDragScrollRaf) {
+                remoteDragScrollRaf = requestAnimationFrame(tickRemoteDragAutoScroll);
+            }
+        }
+
+        function startRemoteDragAutoScroll(scrollContainer) {
+            stopRemoteDragAutoScroll();
+            if (!scrollContainer) return;
+            remoteDragScrollContainer = scrollContainer;
+            remoteDragScrollPointerY = null;
+            remoteDragScrollDragOverHandler = (event) => {
+                if (event.clientY != null) updateRemoteDragAutoScrollPointer(event.clientY);
+            };
+            remoteDragScrollWheelHandler = (event) => {
+                if (!remoteDragScrollContainer) return;
+                remoteDragScrollContainer.scrollTop += event.deltaY;
+                event.preventDefault();
+            };
+            document.addEventListener('dragover', remoteDragScrollDragOverHandler);
+            document.addEventListener('touchmove', remoteDragScrollDragOverHandler, { passive: true });
+            document.addEventListener('wheel', remoteDragScrollWheelHandler, { passive: false });
+        }
+
+        function stopRemoteDragAutoScroll() {
+            remoteDragScrollContainer = null;
+            remoteDragScrollPointerY = null;
+            if (remoteDragScrollRaf != null) {
+                cancelAnimationFrame(remoteDragScrollRaf);
+                remoteDragScrollRaf = null;
+            }
+            if (remoteDragScrollDragOverHandler) {
+                document.removeEventListener('dragover', remoteDragScrollDragOverHandler);
+                document.removeEventListener('touchmove', remoteDragScrollDragOverHandler);
+                remoteDragScrollDragOverHandler = null;
+            }
+            if (remoteDragScrollWheelHandler) {
+                document.removeEventListener('wheel', remoteDragScrollWheelHandler);
+                remoteDragScrollWheelHandler = null;
+            }
+        }
+
+        function beginRemoteDragGap(slotCount = 1) {
+            endRemoteDragGap();
+            remoteDragGapState = { placeholders: [], slotCount: Math.max(1, slotCount), dropIntent: null };
+            return remoteDragGapState;
+        }
+
+        function endRemoteDragGap() {
+            if (!remoteDragGapState) return;
+            remoteDragGapState.placeholders.forEach((node) => node.remove());
+            remoteDragGapState = null;
+        }
+
+        function applyItemsAtRemoteDropIntent(cards) {
+            const intent = remoteDragGapState?.dropIntent;
+            if (!intent?.parent || !cards?.length) return false;
+            const { parent, refNode, insertBefore } = intent;
+            if (!refNode) {
+                appendRemoteCardsToSection(parent, cards);
+            } else if (insertBefore) {
+                insertRemoteCardsBefore(parent, cards, refNode);
+            } else {
+                insertRemoteCardsAfter(parent, cards, refNode);
+            }
+            return true;
+        }
+
+        function updateRemoteDragGapAt(state, { parent, refNode = null, insertBefore = true, slotCount = 1 }) {
+            if (!state || !parent) return;
+            state.placeholders.forEach((node) => node.remove());
+            state.placeholders = [];
+            state.dropIntent = { parent, refNode, insertBefore };
+            const count = Math.max(1, slotCount);
+            for (let i = 0; i < count; i += 1) {
+                const placeholder = document.createElement('div');
+                placeholder.className = 'remote-drag-gap-placeholder';
+                placeholder.setAttribute('aria-hidden', 'true');
+                state.placeholders.push(placeholder);
+            }
+            if (!refNode) {
+                state.placeholders.forEach((placeholder) => parent.appendChild(placeholder));
+                return;
+            }
+            if (insertBefore) {
+                let insertPoint = refNode;
+                state.placeholders.forEach((placeholder) => {
+                    parent.insertBefore(placeholder, insertPoint);
+                    insertPoint = placeholder.nextSibling;
+                });
+                return;
+            }
+            let insertPoint = refNode.nextSibling;
+            state.placeholders.forEach((placeholder) => {
+                parent.insertBefore(placeholder, insertPoint);
+                insertPoint = placeholder.nextSibling;
+            });
+        }
+
+        function updateRemoteDragGapFromTarget(state, parent, targetCard, clientX, slotCount) {
+            if (!state || !parent || !targetCard) return;
+            const rect = targetCard.getBoundingClientRect();
+            const insertBefore = clientX < rect.left + rect.width / 2;
+            updateRemoteDragGapAt(state, {
+                parent,
+                refNode: targetCard,
+                insertBefore,
+                slotCount
+            });
+        }
+
+        function updateRemoteSectionDragGap(sectionBody, clientX, clientY, slotCount) {
+            const state = remoteDragGapState;
+            if (!state || !sectionBody) return;
+            const targets = [...sectionBody.querySelectorAll(':scope > .cue-edit-card:not(.dragging-cue-group)')];
+            for (const card of targets) {
+                const rect = card.getBoundingClientRect();
+                const inRow = clientY >= rect.top && clientY <= rect.bottom;
+                if (!inRow) continue;
+                if (clientX < rect.left + rect.width / 2) {
+                    updateRemoteDragGapAt(state, {
+                        parent: sectionBody,
+                        refNode: card,
+                        insertBefore: true,
+                        slotCount
+                    });
+                } else {
+                    updateRemoteDragGapAt(state, {
+                        parent: sectionBody,
+                        refNode: card,
+                        insertBefore: false,
+                        slotCount
+                    });
+                }
+                return;
+            }
+            updateRemoteDragGapAt(state, { parent: sectionBody, refNode: null, slotCount });
         }
 
         function resolveRemoteSectionBodyFromTarget(target) {
@@ -2821,6 +3039,8 @@
                 event.dataTransfer.dropEffect = 'move';
                 clearSectionDragOver();
                 sectionBody.classList.add('remote-section-drag-over');
+                const draggedCards = getActiveRemoteDragCards();
+                updateRemoteSectionDragGap(sectionBody, event.clientX, event.clientY, draggedCards.length || 1);
             });
 
             cueGridRemote.addEventListener('dragleave', (event) => {
@@ -2841,7 +3061,11 @@
                 event.preventDefault();
                 event.stopPropagation();
                 clearSectionDragOver();
-                moveRemoteEditCardsInSection(sectionBody, draggedCards, event.clientX, event.clientY);
+                const applied = applyItemsAtRemoteDropIntent(draggedCards);
+                endRemoteDragGap();
+                if (!applied) {
+                    moveRemoteEditCardsInSection(sectionBody, draggedCards, event.clientX, event.clientY);
+                }
                 draggedCards.forEach(card => card.classList.remove('dragging', 'dragging-cue-group'));
                 draggedEditCueId = null;
                 persistRemoteLayoutFromDom();
@@ -2873,11 +3097,13 @@
                     e.dataTransfer.setData(REMOTE_SECTION_DRAG_MIME, section.id);
                     block.classList.add('dragging-section');
                     cueGridRemote?.classList.add('section-drag-active');
+                    startRemoteDragAutoScroll(remoteMain);
                 });
                 dragHandle.addEventListener('dragend', () => {
                     block.classList.remove('dragging-section');
                     cueGridRemote?.classList.remove('section-drag-active');
                     clearRemoteSectionInsertIndicators();
+                    stopRemoteDragAutoScroll();
                 });
                 header.appendChild(dragHandle);
             }
@@ -3200,8 +3426,10 @@
         }
 
         function clearReorderIndicators() {
+            endRemoteDragGap();
+            stopRemoteDragAutoScroll();
             document.querySelectorAll('.cue-edit-card').forEach(el => {
-                el.classList.remove('drag-insert-before', 'drag-insert-after', 'dragging');
+                el.classList.remove('dragging');
                 el.style.pointerEvents = '';
             });
             document.querySelectorAll('.cue-edit-drag.reorder-active').forEach(el => {
@@ -3276,27 +3504,46 @@
         }
 
         function updateReorderIndicatorAtPoint(clientX, clientY, draggingCueId) {
-            document.querySelectorAll('.cue-edit-card').forEach(el => {
-                el.classList.remove('drag-insert-before', 'drag-insert-after');
-            });
+            const state = remoteDragGapState;
+            if (!state) return null;
             const hit = findDropTargetAtPoint(clientX, clientY, draggingCueId);
-            if (!hit) return null;
-            hit.targetCard.classList.add(hit.insertAfter ? 'drag-insert-after' : 'drag-insert-before');
+            if (!hit) {
+                const sectionBody = findSectionBodyAtPoint(clientX, clientY);
+                if (sectionBody) {
+                    updateRemoteSectionDragGap(sectionBody, clientX, clientY, state.slotCount);
+                }
+                return null;
+            }
+            updateRemoteDragGapFromTarget(
+                state,
+                hit.targetCard.parentElement,
+                hit.targetCard,
+                clientX,
+                state.slotCount
+            );
             return hit;
         }
 
         function finishTouchReorder() {
             if (!touchReorderState) return;
             const { cueId, targetCard, insertAfter, clientX, clientY } = touchReorderState;
-            if (targetCard && targetCard.dataset.cueId !== cueId) {
-                performCueReorder(cueId, targetCard.dataset.cueId, insertAfter);
-            } else if (clientX != null && clientY != null) {
-                const sectionBody = findSectionBodyAtPoint(clientX, clientY);
-                const draggedCard = cueGridRemote.querySelector(`.cue-edit-card[data-cue-id="${cueId}"]`);
-                if (sectionBody && draggedCard) {
-                    sectionBody.appendChild(draggedCard);
-                    persistRemoteLayoutFromDom();
+            const draggedCard = cueGridRemote.querySelector(`.cue-edit-card[data-cue-id="${cueId}"]`);
+            const cardsToMove = draggedCard ? [draggedCard] : [];
+            const applied = applyItemsAtRemoteDropIntent(cardsToMove);
+            endRemoteDragGap();
+            if (!applied) {
+                if (targetCard && targetCard.dataset.cueId !== cueId) {
+                    performCueReorder(cueId, targetCard.dataset.cueId, insertAfter);
+                } else if (clientX != null && clientY != null) {
+                    const sectionBody = findSectionBodyAtPoint(clientX, clientY);
+                    if (sectionBody && draggedCard) {
+                        moveRemoteEditCardsInSection(sectionBody, cardsToMove, clientX, clientY);
+                        persistRemoteLayoutFromDom();
+                    }
                 }
+            } else {
+                persistRemoteLayoutFromDom();
+                refreshAllRemoteReorderButtons();
             }
             touchReorderState = null;
             draggedEditCueId = null;
@@ -3321,6 +3568,7 @@
                 if (!e.touches[0]) return;
                 e.preventDefault();
                 const t = e.touches[0];
+                updateRemoteDragAutoScrollPointer(t.clientY);
                 if (sourceRect) {
                     moveTouchReorderGhost(t.clientX, t.clientY, sourceRect);
                 }
@@ -3360,11 +3608,13 @@
                         insertAfter: false
                     };
                     draggedEditCueId = card.dataset.cueId;
+                    beginRemoteDragGap(1);
                     card.classList.add('dragging');
                     card.style.pointerEvents = 'none';
                     dragHandle.classList.add('reorder-active');
                     cueGridRemote.classList.add('drag-active');
                     document.body.classList.add('remote-reorder-active');
+                    startRemoteDragAutoScroll(remoteMain);
                     createTouchReorderGhost(card);
                     moveTouchReorderGhost(t.clientX, t.clientY, sourceRect);
                     if (navigator.vibrate) navigator.vibrate(15);
@@ -3393,6 +3643,8 @@
             dragHandle.addEventListener('dragstart', (e) => {
                 e.stopPropagation();
                 draggedEditCueId = card.dataset.cueId;
+                beginRemoteDragGap(1);
+                startRemoteDragAutoScroll(remoteMain);
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', draggedEditCueId);
                 e.dataTransfer.setData('application/x-accompaniment-cue-ids', draggedEditCueId);
@@ -3401,15 +3653,14 @@
             });
             dragHandle.addEventListener('dragend', (e) => {
                 e.stopPropagation();
+                stopRemoteDragAutoScroll();
+                endRemoteDragGap();
                 document.querySelectorAll('.cue-edit-card.dragging, .cue-edit-card.dragging-cue-group').forEach(el => {
                     el.classList.remove('dragging', 'dragging-cue-group');
                 });
                 cueGridRemote.classList.remove('drag-active');
                 cueGridRemote.querySelectorAll('.remote-section-body.remote-section-drag-over').forEach(el => {
                     el.classList.remove('remote-section-drag-over');
-                });
-                document.querySelectorAll('.cue-edit-card').forEach(el => {
-                    el.classList.remove('drag-insert-before', 'drag-insert-after');
                 });
                 draggedEditCueId = null;
             });
@@ -3418,31 +3669,38 @@
                 e.stopPropagation();
                 if (!draggedEditCueId || card.dataset.cueId === draggedEditCueId) return;
                 if (card.classList.contains('dragging-cue-group')) return;
-                document.querySelectorAll('.cue-edit-card').forEach(el => {
-                    el.classList.remove('drag-insert-before', 'drag-insert-after');
-                });
-                const rect = card.getBoundingClientRect();
-                if (e.clientX < rect.left + rect.width / 2) {
-                    card.classList.add('drag-insert-before');
-                } else {
-                    card.classList.add('drag-insert-after');
-                }
-            });
-            card.addEventListener('dragleave', (e) => {
-                const rect = card.getBoundingClientRect();
-                if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
-                    card.classList.remove('drag-insert-before', 'drag-insert-after');
-                }
+                const state = remoteDragGapState;
+                if (!state) return;
+                updateRemoteDragGapFromTarget(
+                    state,
+                    card.parentElement,
+                    card,
+                    e.clientX,
+                    state.slotCount
+                );
             });
             card.addEventListener('drop', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 const fromId = e.dataTransfer.getData('text/plain') || draggedEditCueId;
-                const toId = card.dataset.cueId;
-                if (!fromId || fromId === toId) return;
-                const rect = card.getBoundingClientRect();
-                const insertAfter = e.clientX >= rect.left + rect.width / 2;
-                performCueReorder(fromId, toId, insertAfter);
+                if (!fromId) return;
+                const draggedCards = getActiveRemoteDragCards();
+                const cardsToMove = draggedCards.length > 0 && draggedCards.some(c => c.dataset.cueId === fromId)
+                    ? draggedCards
+                    : [cueGridRemote.querySelector(`.cue-edit-card[data-cue-id="${fromId}"]`)].filter(Boolean);
+                const applied = applyItemsAtRemoteDropIntent(cardsToMove);
+                endRemoteDragGap();
+                if (!applied) {
+                    const toId = card.dataset.cueId;
+                    if (toId && fromId !== toId) {
+                        const rect = card.getBoundingClientRect();
+                        const insertAfter = e.clientX >= rect.left + rect.width / 2;
+                        performCueReorder(fromId, toId, insertAfter);
+                    }
+                } else {
+                    persistRemoteLayoutFromDom();
+                    refreshAllRemoteReorderButtons();
+                }
                 clearReorderIndicators();
                 draggedEditCueId = null;
             });
@@ -3452,15 +3710,16 @@
             const savedScroll = captureRemoteScrollPosition();
             const wrapper = cueGridRemote.querySelector(`.cue-remote-wrapper[data-cue-id="${cue.id}"]`);
             const button = wrapper?.querySelector('.cue-button-remote') || cueGridRemote.querySelector(`.cue-button-remote[data-cue-id="${cue.id}"]`);
-            const mergedCue = mergeRemotePlaybackState(currentCues[cue.id], { ...currentCues[cue.id], ...cue });
-            currentCues[cue.id] = mergedCue;
-            if (button) {
-                updateButtonTextContent(button, mergedCue);
-                updateButtonStatusClass(button, mergedCue.status, mergedCue);
-                ensureWaveformForButton(button, mergedCue);
+            if (cue?.id) {
+                currentCues[cue.id] = cue;
             }
-            updateRemoteCueMeter(mergedCue);
-            handleRemoteWaveformUpdate(mergedCue);
+            if (button) {
+                updateButtonTextContent(button, cue);
+                updateButtonStatusClass(button, cue.status, cue);
+                ensureWaveformForButton(button, cue);
+            }
+            updateRemoteCueMeter(cue);
+            handleRemoteWaveformUpdate(cue);
             restoreRemoteScrollPosition(savedScroll);
         }
 

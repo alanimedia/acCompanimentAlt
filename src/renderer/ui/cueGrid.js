@@ -1,6 +1,6 @@
 import { formatTime } from './utils.js';
 import { uiLog } from './uiLogger.js';
-import { getContrastTextColors } from './buttonColorPresets.js';
+import { getContrastTextColors, PRESET_BUTTON_COLORS, DEFAULT_CUE_BUTTON_COLOR, normalizeHexColor } from './buttonColorPresets.js';
 import {
     shouldShowButtonWaveform,
     ensureButtonWaveform,
@@ -17,8 +17,17 @@ import {
     bindSectionBlockDragDrop,
     getActiveDragWrappers,
     insertWrappersBefore,
-    insertWrappersAfter
+    insertWrappersAfter,
+    appendWrappersToSection
 } from './cueGridSections.js';
+import {
+    beginDragGap,
+    endDragGap,
+    getDragGapState,
+    applyDragGapFromTarget,
+    applyItemsAtDropIntent
+} from './dragGapPlaceholder.js';
+import { startDragAutoScroll, stopDragAutoScroll } from './dragAutoScroll.js';
 
 function getAppConfigForWaveform() {
     return (uiCore && typeof uiCore.getCurrentAppConfig === 'function')
@@ -72,6 +81,296 @@ let selectionAnchorId = null;
 let deleteSelectedCuesBtn = null;
 let clearSectionDragOver = null;
 let activeDragCueIds = [];
+let debouncedSaveCuePatchFn = null;
+
+function debounce(fn, delay) {
+    let timeout;
+    return function debounced(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+function saveCuePatchDebounced(cueId, patch) {
+    if (!debouncedSaveCuePatchFn) {
+        debouncedSaveCuePatchFn = debounce(async (id, patchData) => {
+            const cue = cueStore?.getCueById?.(id);
+            if (!cue) return;
+            await cueStore.addOrUpdateCue({ ...cue, ...patchData });
+        }, 400);
+    }
+    debouncedSaveCuePatchFn(cueId, patch);
+}
+
+function applyLiveCueVolume(cueId, volume) {
+    const ac = audioController?.default || audioController;
+    if (typeof ac?.setVolume === 'function') {
+        ac.setVolume(cueId, volume, { persist: false });
+    }
+}
+
+function seekCuePlayback(cueId, positionSec, options) {
+    const ac = audioController?.default || audioController;
+    if (typeof ac?.seek === 'function') {
+        ac.seek(cueId, positionSec, options);
+    }
+}
+
+function prepareCueScrub(cueId) {
+    const ac = audioController?.default || audioController;
+    if (typeof ac?.prepareScrubSeek === 'function') {
+        ac.prepareScrubSeek(cueId);
+    }
+}
+
+function finishCueScrub(cueId) {
+    const ac = audioController?.default || audioController;
+    if (typeof ac?.finishScrubSeek === 'function') {
+        ac.finishScrubSeek(cueId);
+    }
+}
+
+function applyEditCardAppearance(card, cue) {
+    const hex = normalizeHexColor(cue.buttonColor) || DEFAULT_CUE_BUTTON_COLOR;
+    card.style.backgroundColor = hex;
+    card.style.color = getContrastTextColors(hex).primary;
+    card.style.borderColor = hex === DEFAULT_CUE_BUTTON_COLOR ? '#666' : hex;
+    const preview = card.querySelector('.cue-edit-color-preview');
+    if (preview) preview.style.backgroundColor = hex;
+}
+
+function refreshEditCardColor(cueId, color) {
+    const card = cueGridContainer?.querySelector(`.cue-edit-card[data-cue-id="${cueId}"]`);
+    if (!card) return;
+    const cue = cueStore?.getCueById?.(cueId);
+    if (!cue) return;
+    cue.buttonColor = color || null;
+    applyEditCardAppearance(card, cue);
+    const norm = normalizeHexColor(color);
+    card.querySelectorAll('.cue-color-swatch').forEach((swatch) => {
+        swatch.classList.toggle('active', normalizeHexColor(swatch.title) === norm);
+    });
+}
+
+function buildEditCardColorSwatches(container, cueId, currentColor) {
+    if (!container) return;
+    container.innerHTML = '';
+    const current = normalizeHexColor(currentColor);
+    PRESET_BUTTON_COLORS.forEach((color) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `cue-color-swatch${current === color ? ' active' : ''}`;
+        btn.style.backgroundColor = color;
+        btn.title = color;
+        btn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            saveCuePatchDebounced(cueId, { buttonColor: color });
+            refreshEditCardColor(cueId, color);
+        });
+        container.appendChild(btn);
+    });
+}
+
+function getWrapperCueId(wrapper) {
+    return wrapper?.dataset?.cueId
+        || wrapper?.querySelector('.cue-button')?.dataset?.cueId
+        || wrapper?.querySelector('.cue-edit-card')?.dataset?.cueId
+        || null;
+}
+
+function bindCueWrapperDragReorder(cueWrapper, cue) {
+    const isEditModeActive = uiCore?.isPersistedEditMode?.() ?? false;
+    cueWrapper.draggable = isEditModeActive;
+    cueWrapper.classList.toggle('draggable-cue-wrapper', isEditModeActive);
+
+    const dragCancelSelector = '.cue-select-checkbox, .playlist-nav-btn, .cue-edit-name, .cue-color-swatch, .cue-edit-settings-btn, .cue-edit-volume-row, .cue-edit-volume, .cue-button-waveform-wrap, input[type="range"], input, textarea, select, button';
+
+    const restoreWrapperDraggable = () => {
+        if (uiCore?.isPersistedEditMode?.()) {
+            cueWrapper.draggable = true;
+        }
+    };
+
+    const suspendWrapperDragForInteraction = (event) => {
+        if (!uiCore?.isPersistedEditMode?.()) return;
+        if (!event.target.closest(dragCancelSelector)) return;
+        cueWrapper.draggable = false;
+        window.addEventListener('mouseup', restoreWrapperDraggable, { once: true });
+        window.addEventListener('pointerup', restoreWrapperDraggable, { once: true });
+        window.addEventListener('touchend', restoreWrapperDraggable, { once: true });
+    };
+
+    cueWrapper.addEventListener('mousedown', suspendWrapperDragForInteraction);
+    cueWrapper.addEventListener('pointerdown', suspendWrapperDragForInteraction);
+
+    cueWrapper.addEventListener('dragstart', (e) => {
+        if (!uiCore.isPersistedEditMode?.()) {
+            e.preventDefault();
+            return;
+        }
+        if (e.target.closest(dragCancelSelector)) {
+            e.preventDefault();
+            return;
+        }
+        activeDragCueIds = getOrderedSelectedCueIds(cue.id);
+        beginDragGap(activeDragCueIds.length);
+        startDragAutoScroll(document.getElementById('mainDropArea'));
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', cue.id);
+        e.dataTransfer.setData('application/x-accompaniment-cue-ids', activeDragCueIds.join(','));
+        markDragWrappers(activeDragCueIds, cue.id);
+        cueGridContainer.classList.add('drag-active');
+    });
+
+    cueWrapper.addEventListener('dragend', () => {
+        clearDragWrappers();
+        cueGridContainer.classList.remove('drag-active');
+        if (typeof clearSectionDragOver === 'function') {
+            clearSectionDragOver();
+        }
+    });
+
+    cueWrapper.addEventListener('dragover', (e) => {
+        if (!uiCore.isPersistedEditMode?.()) return;
+        if (cueWrapper.classList.contains('dragging-cue-group')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+
+        const draggedWrappers = getActiveDragWrappers(cueGridContainer);
+        if (draggedWrappers.length === 0 || draggedWrappers.includes(cueWrapper)) return;
+
+        updateCueDragGapAtPoint(cueWrapper.parentElement, cueWrapper, e.clientX);
+    });
+
+    cueWrapper.addEventListener('dragleave', (e) => {
+        const rect = cueWrapper.getBoundingClientRect();
+        const x = e.clientX;
+        const y = e.clientY;
+        if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+            return;
+        }
+    });
+
+    cueWrapper.addEventListener('drop', async (e) => {
+        if (!uiCore.isPersistedEditMode?.()) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const draggedWrappers = getActiveDragWrappers(cueGridContainer, e.dataTransfer);
+        if (draggedWrappers.length === 0 || draggedWrappers.includes(cueWrapper)) {
+            endDragGap();
+            return;
+        }
+
+        const applied = applyItemsAtDropIntent(draggedWrappers, {
+            insertBefore: insertWrappersBefore,
+            insertAfter: insertWrappersAfter,
+            append: appendWrappersToSection
+        }, getDragGapState());
+        endDragGap();
+
+        if (!applied) {
+            const rect = cueWrapper.getBoundingClientRect();
+            const insertBefore = e.clientX < rect.left + rect.width / 2;
+            const dropParent = cueWrapper.parentElement || cueGridContainer;
+            if (insertBefore) {
+                insertWrappersBefore(dropParent, draggedWrappers, cueWrapper);
+            } else {
+                insertWrappersAfter(dropParent, draggedWrappers, cueWrapper);
+            }
+        }
+
+        clearDragWrappers();
+        await persistLayoutFromDom(cueGridContainer, cueStore);
+    });
+}
+
+function appendEditModeCueCard(cue, cueWrapper) {
+    const card = document.createElement('div');
+    card.className = 'cue-edit-card';
+    card.dataset.cueId = cue.id;
+    const volPct = Math.round((cue.volume !== undefined ? cue.volume : 1) * 100);
+    card.innerHTML = `
+        <div class="cue-edit-top">
+            <div class="cue-edit-top-right">
+                <div class="cue-edit-color-preview" title="Button color"></div>
+                <button type="button" class="cue-edit-settings-btn" title="Cue properties" aria-label="Cue properties">&#9881;</button>
+            </div>
+        </div>
+        <div class="cue-edit-color-swatches"></div>
+        <input type="text" class="cue-edit-name" aria-label="Cue name">
+        <div class="cue-edit-volume-row">
+            <span class="cue-edit-volume-label">Volume</span>
+            <span class="cue-edit-volume-pct">${volPct}%</span>
+            <input type="range" class="cue-edit-volume" min="0" max="100" step="1" value="${volPct}" aria-label="Cue volume">
+        </div>
+        <div class="cue-edit-type">${cue.type === 'playlist' ? 'Playlist' : 'Single file'}</div>
+    `;
+
+    applyEditCardAppearance(card, cue);
+    buildEditCardColorSwatches(card.querySelector('.cue-edit-color-swatches'), cue.id, cue.buttonColor);
+
+    const nameInput = card.querySelector('.cue-edit-name');
+    nameInput.value = cue.name || '';
+    nameInput.addEventListener('click', (event) => event.stopPropagation());
+    nameInput.addEventListener('change', (event) => {
+        event.stopPropagation();
+        saveCuePatchDebounced(cue.id, { name: nameInput.value });
+    });
+
+    const volInput = card.querySelector('.cue-edit-volume');
+    const volLabel = card.querySelector('.cue-edit-volume-pct');
+    const suspendWrapperDragForVolume = () => {
+        cueWrapper.draggable = false;
+        const restore = () => {
+            cueWrapper.draggable = true;
+        };
+        window.addEventListener('mouseup', restore, { once: true });
+        window.addEventListener('pointerup', restore, { once: true });
+    };
+    volInput.addEventListener('click', (event) => event.stopPropagation());
+    volInput.addEventListener('pointerdown', (event) => {
+        event.stopPropagation();
+        suspendWrapperDragForVolume();
+    });
+    volInput.addEventListener('input', (event) => {
+        event.stopPropagation();
+        volLabel.textContent = `${volInput.value}%`;
+        const vol = parseInt(volInput.value, 10) / 100;
+        applyLiveCueVolume(cue.id, vol);
+        saveCuePatchDebounced(cue.id, { volume: vol });
+    });
+
+    const settingsBtn = card.querySelector('.cue-edit-settings-btn');
+    settingsBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        setSingleCueSelection(cue.id);
+        uiCore?.openPropertiesSidebar?.(cue);
+    });
+
+    card.addEventListener('click', (event) => {
+        if (event.target.closest('.cue-edit-name, .cue-color-swatch, .cue-edit-settings-btn, .cue-edit-volume-row')) return;
+        const isMultiSelect = event.ctrlKey || event.metaKey;
+        if (isMultiSelect) {
+            event.preventDefault();
+            toggleCueSelection(cue.id);
+            return;
+        }
+        if (event.shiftKey) {
+            event.preventDefault();
+            if (selectionAnchorId) {
+                selectCueRange(selectionAnchorId, cue.id);
+            } else {
+                setSingleCueSelection(cue.id);
+            }
+            return;
+        }
+        setSingleCueSelection(cue.id);
+    });
+
+    cueWrapper.appendChild(card);
+}
 
 function getOrderedSelectedCueIds(primaryCueId) {
     if (selectedCueIds.size <= 1 || !selectedCueIds.has(primaryCueId)) {
@@ -82,18 +381,22 @@ function getOrderedSelectedCueIds(primaryCueId) {
 
 function markDragWrappers(cueIds, primaryCueId) {
     cueIds.forEach(id => {
-        const button = document.querySelector(`[data-cue-id="${id}"]`);
-        const wrapper = button?.closest('.cue-wrapper');
+        const el = document.querySelector(`.cue-wrapper[data-cue-id="${id}"]`)
+            || document.querySelector(`.cue-edit-card[data-cue-id="${id}"]`);
+        const wrapper = el?.classList?.contains('cue-wrapper') ? el : el?.closest('.cue-wrapper');
         if (!wrapper) return;
         wrapper.classList.add('dragging-cue-group');
         if (id === primaryCueId) {
             wrapper.classList.add('dragging-cue');
         }
+        const button = wrapper.querySelector('.cue-button');
         button?.classList.add('dragging');
     });
 }
 
 function clearDragWrappers() {
+    stopDragAutoScroll();
+    endDragGap();
     document.querySelectorAll('.cue-wrapper.dragging-cue-group').forEach(wrapper => {
         wrapper.classList.remove('dragging-cue-group', 'dragging-cue');
     });
@@ -101,6 +404,17 @@ function clearDragWrappers() {
         button.classList.remove('dragging');
     });
     activeDragCueIds = [];
+}
+
+function updateCueDragGapAtPoint(parent, targetElement, clientX) {
+    const state = getDragGapState();
+    if (!state || !parent || !targetElement) return;
+    applyDragGapFromTarget(state, {
+        parent,
+        targetElement,
+        clientX,
+        slotCount: state.slotCount || 1
+    });
 }
 
 function applyCueButtonColor(button, buttonColor) {
@@ -163,9 +477,8 @@ export function selectAllCues() {
 
 function applySelectionToDom() {
     if (!cueGridContainer) return;
-    cueGridContainer.querySelectorAll('.cue-wrapper').forEach(wrapper => {
-        const button = wrapper.querySelector('.cue-button');
-        const cueId = button?.dataset.cueId;
+    cueGridContainer.querySelectorAll('.cue-wrapper').forEach((wrapper) => {
+        const cueId = getWrapperCueId(wrapper);
         const isSelected = !!cueId && selectedCueIds.has(cueId);
         wrapper.classList.toggle('cue-selected', isSelected);
         const checkbox = wrapper.querySelector('.cue-select-checkbox');
@@ -183,8 +496,9 @@ export function clearCueSelection() {
 function getVisibleCueOrder() {
     const ids = [];
     if (!cueGridContainer) return ids;
-    cueGridContainer.querySelectorAll('.cue-wrapper .cue-button[data-cue-id]').forEach(button => {
-        ids.push(button.dataset.cueId);
+    cueGridContainer.querySelectorAll('.cue-wrapper').forEach((wrapper) => {
+        const cueId = getWrapperCueId(wrapper);
+        if (cueId) ids.push(cueId);
     });
     return ids;
 }
@@ -212,10 +526,11 @@ function selectCueRange(fromId, toId) {
     const endIndex = order.indexOf(toId);
     if (startIndex === -1 || endIndex === -1) return;
     const [low, high] = startIndex <= endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+    selectedCueIds.clear();
     for (let index = low; index <= high; index += 1) {
         selectedCueIds.add(order[index]);
     }
-    selectionAnchorId = toId;
+    selectionAnchorId = fromId;
     applySelectionToDom();
 }
 
@@ -365,6 +680,7 @@ function renderCues() {
     function appendCueCard(cue, parentContainer) {
         const cueWrapper = document.createElement('div');
         cueWrapper.className = 'cue-wrapper';
+        cueWrapper.dataset.cueId = cue.id;
 
         if (isEditModeActive) {
             const selectCheckbox = document.createElement('input');
@@ -384,6 +700,13 @@ function renderCues() {
                 applySelectionToDom();
             });
             cueWrapper.appendChild(selectCheckbox);
+            appendEditModeCueCard(cue, cueWrapper);
+            parentContainer.appendChild(cueWrapper);
+            bindCueWrapperDragReorder(cueWrapper, cue);
+            if (selectedCueIds.has(cue.id)) {
+                cueWrapper.classList.add('cue-selected');
+            }
+            return;
         }
 
         const interactiveContainer = document.createElement('div');
@@ -471,8 +794,7 @@ function renderCues() {
                 cue,
                 (filePath) => uiCore.getOrGenerateWaveformPeaks(filePath),
                 appConfig,
-                (cueId, positionSec, options) => audioController?.default?.seek?.(cueId, positionSec, options),
-                (cueId) => audioController?.default?.prepareScrubSeek?.(cueId)
+                seekCuePlayback
             );
         } else {
             removeButtonWaveform(button);
@@ -545,97 +867,6 @@ function renderCues() {
         applyCueBadgeState(cue.id);
 
         button.addEventListener('click', (event) => handleCueButtonClick(event, cue));
-
-        // Drag reordering in persisted edit mode (wrapper-level drag avoids button conflicts)
-        if (isEditModeActive) {
-            cueWrapper.draggable = true;
-            cueWrapper.classList.add('draggable-cue-wrapper');
-
-            cueWrapper.addEventListener('dragstart', (e) => {
-                if (!uiCore.isPersistedEditMode?.()) return;
-                if (e.target.closest('.cue-select-checkbox, .playlist-nav-btn')) {
-                    e.preventDefault();
-                    return;
-                }
-                activeDragCueIds = getOrderedSelectedCueIds(cue.id);
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', cue.id);
-                e.dataTransfer.setData('application/x-accompaniment-cue-ids', activeDragCueIds.join(','));
-                markDragWrappers(activeDragCueIds, cue.id);
-                cueGridContainer.classList.add('drag-active');
-            });
-
-            cueWrapper.addEventListener('dragend', () => {
-                clearDragWrappers();
-                cueGridContainer.classList.remove('drag-active');
-                if (typeof clearSectionDragOver === 'function') {
-                    clearSectionDragOver();
-                }
-                document.querySelectorAll('.drag-insert-before, .drag-insert-after').forEach(el => {
-                    el.classList.remove('drag-insert-before', 'drag-insert-after');
-                });
-            });
-
-            cueWrapper.addEventListener('dragover', (e) => {
-                if (!uiCore.isPersistedEditMode?.()) return;
-                if (cueWrapper.classList.contains('dragging-cue-group')) return;
-                e.preventDefault();
-                e.stopPropagation();
-                e.dataTransfer.dropEffect = 'move';
-
-                const draggedWrappers = getActiveDragWrappers(cueGridContainer);
-                if (draggedWrappers.length === 0 || draggedWrappers.includes(cueWrapper)) return;
-
-                document.querySelectorAll('.drag-insert-before, .drag-insert-after').forEach(el => {
-                    el.classList.remove('drag-insert-before', 'drag-insert-after');
-                });
-
-                const rect = cueWrapper.getBoundingClientRect();
-                if (e.clientX < rect.left + rect.width / 2) {
-                    cueWrapper.classList.add('drag-insert-before');
-                } else {
-                    cueWrapper.classList.add('drag-insert-after');
-                }
-            });
-
-            cueWrapper.addEventListener('dragleave', (e) => {
-                const rect = cueWrapper.getBoundingClientRect();
-                const x = e.clientX;
-                const y = e.clientY;
-                if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-                    cueWrapper.classList.remove('drag-insert-before', 'drag-insert-after');
-                }
-            });
-
-            cueWrapper.addEventListener('drop', async (e) => {
-                if (!uiCore.isPersistedEditMode?.()) return;
-                e.preventDefault();
-                e.stopPropagation();
-
-                const draggedWrappers = getActiveDragWrappers(cueGridContainer, e.dataTransfer);
-                if (draggedWrappers.length === 0 || draggedWrappers.includes(cueWrapper)) {
-                    cueWrapper.classList.remove('drag-insert-before', 'drag-insert-after');
-                    return;
-                }
-
-                let insertBefore = cueWrapper.classList.contains('drag-insert-before');
-                if (!cueWrapper.classList.contains('drag-insert-before') && !cueWrapper.classList.contains('drag-insert-after')) {
-                    const rect = cueWrapper.getBoundingClientRect();
-                    insertBefore = e.clientX < rect.left + rect.width / 2;
-                }
-
-                const dropParent = cueWrapper.parentElement || cueGridContainer;
-                if (insertBefore) {
-                    insertWrappersBefore(dropParent, draggedWrappers, cueWrapper);
-                } else {
-                    insertWrappersAfter(dropParent, draggedWrappers, cueWrapper);
-                }
-
-                cueWrapper.classList.remove('drag-insert-before', 'drag-insert-after');
-                clearDragWrappers();
-                await persistLayoutFromDom(cueGridContainer, cueStore);
-            });
-        }
     }
 
     const layoutEntries = layout.length > 0
@@ -735,29 +966,22 @@ function handleCueButtonClick(event, cue) {
         uiLog.error(`UI: Cue not found.`);
         return;
     }
+    if (event.target.closest('.cue-button-waveform-wrap')) {
+        return;
+    }
     if (!uiCore || !audioController) {
         uiLog.error("cueGrid.handleCueButtonClick: uiCore or audioController not initialized.");
         return;
     }
 
-    // Persisted edit: properties / multi-select. Shift temporarily switches to show/playback mode.
+    // Show/playback mode only — edit mode uses inline edit cards and the properties gear button.
     if (uiCore.isEditMode()) {
-        const isMultiSelect = event.ctrlKey || event.metaKey;
-
-        if (isMultiSelect) {
-            event.preventDefault();
-            toggleCueSelection(cue.id);
-            return;
-        }
-
-        setSingleCueSelection(cue.id);
-        uiLog.debug(`UI: Edit mode click on cue ${cue.id}. Opening properties.`);
-        uiCore.openPropertiesSidebar(cue);
-    } else {
-        const retriggerBehavior = cue.retriggerBehavior || uiCore.getCurrentAppConfig().defaultRetriggerBehavior || 'restart';
-        uiLog.debug(`UI: Show mode action for cue ${cue.id}. Using retrigger behavior: ${retriggerBehavior}`);
-        audioController.default.toggle(cue.id, false, retriggerBehavior);
+        return;
     }
+
+    const retriggerBehavior = cue.retriggerBehavior || uiCore.getCurrentAppConfig().defaultRetriggerBehavior || 'restart';
+    uiLog.debug(`UI: Playback mode action for cue ${cue.id}. Using retrigger behavior: ${retriggerBehavior}`);
+    audioController.default.toggle(cue.id, false, retriggerBehavior);
 }
 
 function updateButtonPlayingState(cueId, isPlaying, statusTextArg = null, isCuedOverride = false, elements = null) {

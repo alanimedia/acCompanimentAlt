@@ -114,8 +114,8 @@ function getDOMElement(elementName) {
 function showPropertiesSidebar() {
     if (propertiesSidebar) {
         propertiesSidebar.classList.remove('hidden');
-        const innerScrollable = propertiesSidebar.querySelector('.sidebar-content-inner');
-        if (innerScrollable) innerScrollable.scrollTop = 0;
+        const scrollable = propertiesSidebar.querySelector('.sidebar-content');
+        if (scrollable) scrollable.scrollTop = 0;
     }
 }
 

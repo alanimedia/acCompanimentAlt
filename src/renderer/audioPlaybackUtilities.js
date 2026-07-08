@@ -89,17 +89,38 @@ export function prepareScrubInCue(cueId, context) {
 
     if (!playingState.isScrubbing) {
         playingState.isScrubbing = true;
-        playingState.scrubRestoreVolume = sound.volume();
+        playingState.wasPlayingBeforeScrub = sound.playing() && !playingState.isPaused;
+        const currentVol = typeof sound.volume === 'function' ? sound.volume() : 1;
+        playingState.scrubRestoreVolume = currentVol > 0
+            ? currentVol
+            : getTargetVolumeForState(playingState, context);
     }
     sound.volume(0);
 }
 
 function finishScrubInCue(playingState, sound, context) {
     if (!playingState?.isScrubbing) return;
-    const restoreVolume = playingState.scrubRestoreVolume ?? getTargetVolumeForState(playingState, context);
+    let restoreVolume = playingState.scrubRestoreVolume ?? getTargetVolumeForState(playingState, context);
+    if (restoreVolume <= 0) {
+        restoreVolume = getTargetVolumeForState(playingState, context);
+    }
     playingState.isScrubbing = false;
     playingState.scrubRestoreVolume = null;
-    sound.volume(restoreVolume);
+    if (sound && typeof sound.volume === 'function') {
+        sound.volume(restoreVolume);
+    }
+    const shouldResume = playingState.wasPlayingBeforeScrub;
+    playingState.wasPlayingBeforeScrub = false;
+    if (shouldResume && sound && !sound.playing()) {
+        playingState.isPaused = false;
+        sound.play();
+    }
+}
+
+export function finishScrubInCueById(cueId, context) {
+    const playingState = context.currentlyPlaying?.[cueId];
+    const sound = getActiveSound(playingState);
+    finishScrubInCue(playingState, sound, context);
 }
 
 function rescheduleTrimAfterSeek(cueId, sound, playingState, cue, context) {
@@ -117,23 +138,37 @@ function rescheduleTrimAfterSeek(cueId, sound, playingState, cue, context) {
 }
 
 function applySeekToSound(cueId, playingState, sound, clampedPosition, context, options = {}) {
-    const { finalizeScrub = true } = options;
+    const { finalizeScrub = true, skipScrubMute = false } = options;
     const { getGlobalCueByIdRef } = context;
     const cue = playingState.cue || getGlobalCueByIdRef?.(cueId);
-    const wasAudible = sound.playing() && !playingState.isPaused;
+    const wasPlayingBefore = (sound.playing() && !playingState.isPaused) || playingState.wasPlayingBeforeScrub;
 
-    if (wasAudible && !playingState.isScrubbing) {
+    if (skipScrubMute && playingState.isScrubbing) {
+        finishScrubInCue(playingState, sound, context);
+    }
+
+    if (!skipScrubMute && wasPlayingBefore && !playingState.isScrubbing) {
         prepareScrubInCue(cueId, context);
     }
 
+    playingState.lastSeekPosition = clampedPosition;
     sound.seek(clampedPosition);
 
-    if (wasAudible && cue) {
+    if (wasPlayingBefore && cue) {
         rescheduleTrimAfterSeek(cueId, sound, playingState, cue, context);
     }
 
-    if (finalizeScrub) {
+    if (!skipScrubMute && finalizeScrub) {
         finishScrubInCue(playingState, sound, context);
+    }
+
+    if (skipScrubMute && typeof sound.volume === 'function' && sound.volume() <= 0) {
+        sound.volume(getTargetVolumeForState(playingState, context));
+    }
+
+    if (wasPlayingBefore && !playingState.isPaused && !sound.playing()) {
+        playingState.isPaused = false;
+        sound.play();
     }
 
     const status = sound.playing()
@@ -147,11 +182,14 @@ export function seekInCue(cueId, positionSec, context, options = {}) {
         currentlyPlaying,
         getGlobalCueByIdRef
     } = context;
-    const { finalizeScrub = true, coalesceMs = 0 } = options;
+    const { finalizeScrub = true, coalesceMs = 0, skipScrubMute = false } = options;
 
     const playingState = currentlyPlaying[cueId];
     const sound = getActiveSound(playingState);
     if (!playingState || !sound) {
+        if (playingState?.isScrubbing) {
+            finishScrubInCue(playingState, getActiveSound(playingState), context);
+        }
         console.warn(`AudioPlaybackManager: seekInCue called for ${cueId}, but no playing sound found.`);
         return;
     }
@@ -164,7 +202,7 @@ export function seekInCue(cueId, positionSec, context, options = {}) {
         if (existing) clearTimeout(existing.timer);
         const timer = setTimeout(() => {
             pendingSeekTimers.delete(cueId);
-            applySeekToSound(cueId, playingState, sound, clampedPosition, context, { finalizeScrub: false });
+            applySeekToSound(cueId, playingState, sound, clampedPosition, context, { finalizeScrub: false, skipScrubMute });
         }, coalesceMs);
         pendingSeekTimers.set(cueId, { timer, positionSec: clampedPosition });
         return;
@@ -178,7 +216,10 @@ export function seekInCue(cueId, positionSec, context, options = {}) {
         }
     }
 
-    applySeekToSound(cueId, playingState, sound, clampedPosition, context, { finalizeScrub });
+    applySeekToSound(cueId, playingState, sound, clampedPosition, context, { finalizeScrub, skipScrubMute });
+    if (finalizeScrub && !skipScrubMute && playingState.isScrubbing) {
+        finishScrubInCue(playingState, sound, context);
+    }
 }
 
 export function stopAllCues(options = { exceptCueId: null, useFade: true }, context) {

@@ -284,6 +284,9 @@ export function createOnplayHandler(cueId, sound, playingState, filePath, curren
  */
 export function createOnpauseHandler(cueId, sound, playingState, currentItemNameForEvents, audioControllerContext) {
     return () => {
+        if (playingState.isScrubbing) {
+            return;
+        }
         console.log(`[TIME_UPDATE_DEBUG ${cueId}] onpause: Fired for cue ${cueId}.`);
         
         clearTimeUpdateIntervals(cueId, playingState, audioControllerContext);

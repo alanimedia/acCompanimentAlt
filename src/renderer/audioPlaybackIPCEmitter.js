@@ -69,6 +69,13 @@ function sendPlaybackTimeUpdate(cueId, soundInstance, playingState, currentItemN
 
     if (soundInstance && soundInstance.playing()) {
         currentTimeSec = soundInstance.seek() || 0;
+        // If sound.seek() hasn't caught up yet, use the last explicit seek position.
+        if (playingState.lastSeekPosition != null) {
+            const reported = currentTimeSec;
+            if (Math.abs(reported - playingState.lastSeekPosition) > 0.35) {
+                currentTimeSec = playingState.lastSeekPosition;
+            }
+        }
         // If fading, override status to 'fading', otherwise use override or 'playing'
         status = isFading ? 'fading' : (statusOverride || 'playing');
     } else if (soundInstance && playingState.isPaused) {

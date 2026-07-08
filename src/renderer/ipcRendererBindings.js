@@ -352,12 +352,13 @@ function setupOtherListeners() {
         }
     });
 
-    electronAPIInstance.on('seek-cue-by-id-from-main', ({ cueId, positionSec, finalizeScrub }) => {
+    electronAPIInstance.on('seek-cue-by-id-from-main', ({ cueId, positionSec, finalizeScrub, skipScrubMute }) => {
         const ac = audioControllerRef?.default || audioControllerRef;
         if (ac && typeof ac.seek === 'function' && cueId != null && positionSec != null) {
             ac.seek(cueId, positionSec, {
                 finalizeScrub: finalizeScrub !== false,
-                coalesceMs: finalizeScrub === false ? 60 : 0
+                coalesceMs: finalizeScrub === false ? 60 : 0,
+                skipScrubMute: skipScrubMute === true
             });
         }
     });

@@ -3,6 +3,22 @@
  */
 
 const peaksCache = new Map();
+const userSeekingCueIds = new Map();
+
+const USER_SEEKING_HOLD_MS = 1200;
+
+export function markButtonWaveformUserSeeking(cueId) {
+    if (!cueId) return;
+    const existing = userSeekingCueIds.get(cueId);
+    if (existing) clearTimeout(existing);
+    userSeekingCueIds.set(cueId, setTimeout(() => {
+        userSeekingCueIds.delete(cueId);
+    }, USER_SEEKING_HOLD_MS));
+}
+
+export function isButtonWaveformUserSeeking(cueId) {
+    return userSeekingCueIds.has(cueId);
+}
 
 export function resolveShowButtonWaveform(cue, appConfig = {}) {
     if (!cue) return false;
@@ -112,13 +128,22 @@ export function drawWaveformOnCanvas(canvas, peaksData, cue) {
     ctx.stroke();
 }
 
-export function bindButtonWaveformSeek(wrap, cue, peaksData, onSeek, onPrepare) {
+export function bindButtonWaveformSeek(wrap, cue, peaksData, onSeek) {
     if (!wrap || !cue?.id || typeof onSeek !== 'function' || wrap.dataset.seekBound === 'true') return;
     wrap.dataset.seekBound = 'true';
     wrap.style.cursor = 'pointer';
     wrap.style.touchAction = 'none';
 
     let activePointerId = null;
+
+    const drawOptimisticPlayhead = (clientX) => {
+        const canvas = wrap.querySelector('.cue-button-waveform-canvas');
+        if (!canvas || !peaksData) return;
+        const rect = canvas.getBoundingClientRect();
+        if (!rect.width) return;
+        const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        drawWaveformOnCanvas(canvas, peaksData, { ...cue, fileProgressRatio: ratio });
+    };
 
     const seekAtClientX = (clientX, options = {}) => {
         const canvas = wrap.querySelector('.cue-button-waveform-canvas');
@@ -128,15 +153,30 @@ export function bindButtonWaveformSeek(wrap, cue, peaksData, onSeek, onPrepare) 
         const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
         const fullDuration = peaksData?.duration || cue.knownDuration || cue.knownDurationS || 0;
         if (fullDuration <= 0) return;
-        onSeek(cue.id, ratio * fullDuration, options);
+        markButtonWaveformUserSeeking(cue.id);
+        drawOptimisticPlayhead(clientX);
+        onSeek(cue.id, ratio * fullDuration, {
+            ...options,
+            skipScrubMute: true
+        });
     };
 
+    const stopBubble = (event) => {
+        event.stopPropagation();
+    };
+
+    wrap.addEventListener('click', stopBubble);
+    wrap.addEventListener('mousedown', stopBubble);
+
     wrap.addEventListener('pointerdown', (event) => {
+        if (activePointerId != null) return;
         event.stopPropagation();
         event.preventDefault();
         activePointerId = event.pointerId;
-        wrap.setPointerCapture(event.pointerId);
-        if (typeof onPrepare === 'function') onPrepare(cue.id);
+        markButtonWaveformUserSeeking(cue.id);
+        try {
+            wrap.setPointerCapture(event.pointerId);
+        } catch (e) { /* ignore */ }
     });
 
     wrap.addEventListener('pointermove', (event) => {
@@ -158,7 +198,7 @@ export function bindButtonWaveformSeek(wrap, cue, peaksData, onSeek, onPrepare) 
     wrap.addEventListener('pointercancel', finishPointer);
 }
 
-export async function ensureButtonWaveform(button, cue, fetchPeaks, appConfig = {}, onSeek = null, onPrepare = null) {
+export async function ensureButtonWaveform(button, cue, fetchPeaks, appConfig = {}, onSeek = null) {
     if (!button || !shouldShowButtonWaveform(cue, appConfig)) {
         removeButtonWaveform(button);
         return;
@@ -174,6 +214,8 @@ export async function ensureButtonWaveform(button, cue, fetchPeaks, appConfig = 
         canvas.className = 'cue-button-waveform-canvas';
         wrap.appendChild(canvas);
         button.appendChild(wrap);
+    } else {
+        wrap.dataset.seekBound = 'false';
     }
 
     wrap.classList.remove('hidden');
@@ -185,12 +227,13 @@ export async function ensureButtonWaveform(button, cue, fetchPeaks, appConfig = 
     }
     drawWaveformOnCanvas(canvas, peaksData, cue);
     if (typeof onSeek === 'function') {
-        bindButtonWaveformSeek(wrap, cue, peaksData, onSeek, onPrepare);
+        bindButtonWaveformSeek(wrap, cue, peaksData, onSeek);
     }
 }
 
 export function updateButtonWaveformPlayhead(button, cue, appConfig = {}) {
     if (!button || !shouldShowButtonWaveform(cue, appConfig)) return;
+    if (isButtonWaveformUserSeeking(cue.id)) return;
     const canvas = button.querySelector('.cue-button-waveform-canvas');
     if (!canvas) return;
     const peaksData = peaksCache.get(getPeaksCacheKey(cue));
@@ -208,10 +251,11 @@ export function removeButtonWaveform(button) {
 
 export function buildCueForWaveformDraw(cue, timeData = {}) {
     const trimStart = cue.trimStartTime || 0;
-    const knownDuration = cue.knownDuration || cue.knownDurationS || timeData.duration || 0;
+    const peaksData = peaksCache.get(getPeaksCacheKey(cue));
+    const fullDuration = peaksData?.duration || cue.knownDuration || cue.knownDurationS || 0;
     const currentTime = timeData.currentTime ?? cue.currentTimeS ?? 0;
-    const fileProgressRatio = knownDuration > 0
-        ? Math.min(1, Math.max(0, (trimStart + currentTime) / knownDuration))
+    const fileProgressRatio = fullDuration > 0
+        ? Math.min(1, Math.max(0, (trimStart + currentTime) / fullDuration))
         : 0;
     return {
         ...cue,

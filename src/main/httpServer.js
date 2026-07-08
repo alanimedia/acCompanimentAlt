@@ -137,7 +137,8 @@ async function handleRemoteMessage(ws, message) {
                 mainWindowRef.webContents.send('seek-cue-by-id-from-main', {
                     cueId: parsedMessage.cueId,
                     positionSec: Number(parsedMessage.positionSec),
-                    finalizeScrub: parsedMessage.finalizeScrub !== false
+                    finalizeScrub: parsedMessage.finalizeScrub !== false,
+                    skipScrubMute: parsedMessage.skipScrubMute === true
                 });
             }
             return;

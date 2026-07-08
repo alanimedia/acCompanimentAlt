@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.5.6
+
+### Added
+- Hold **\`** (backquote) in Edit mode for temporary playback peek without leaving edit
+- Shift+click range selection on edit-mode cue cards
+- Live volume slider on edit-mode cue cards (Electron)
+- Drag auto-scroll and gap placeholder helpers for smoother cue card reordering
+
+### Changed
+- Cue card drag/reorder only enabled in persisted Edit mode; waveform and volume controls no longer trigger drag
+- Bottom panel and properties waveform use direct pointer handlers for seek/scrub instead of WaveSurfer event coupling
+
+### Fixed
+- Waveform seek pausing playback on Electron (scrub-mute/onpause race; skipScrubMute seek path)
+- Bottom panel single-click seek and scrub blocked during playhead sync
+- Web remote waveform lanes stuck in seeking state after scrub
+- Cue-button waveform seek regressions after drag/reorder work
+- Playhead IPC using lastSeekPosition when Howler seek report lags
+
 ## 1.5.5
 
 ### Added
