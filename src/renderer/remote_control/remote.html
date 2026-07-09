@@ -1643,14 +1643,14 @@
         let activeCueDetail = null;
         let appConfigRemote = {};
         let remoteMode = localStorage.getItem('remoteMode') || 'playback';
-        let isTriggeringCueLocked = false;
         let toastTimeout = null;
         let draggedEditCueId = null;
         let touchReorderState = null;
         let touchReorderPressTimer = null;
         let touchReorderGhostEl = null;
         const TOUCH_REORDER_LONG_PRESS_MS = 320;
-        const CUE_TRIGGER_LOCK_MS = 500;
+        const REMOTE_CLIENT_TRIGGER_GUARD_MS = 120;
+        const lastRemoteTriggerSentByCueId = new Map();
         const waveformPeaksCache = new Map();
         const remoteWaveformLaneMap = new Map();
         const remoteWaveformLanePending = new Map();
@@ -2320,34 +2320,29 @@
             }
         };
 
-        // Debounced triggerCue function
-        const debouncedTriggerCue = debounce(function(cueId) {
+        function applyOptimisticStopAllFeedback() {
+            Object.values(currentCues).forEach((cue) => {
+                if (cue.status === 'playing' || cue.status === 'paused') {
+                    updateCueButtonRemote({ ...cue, status: 'stopped', currentTimeS: 0 });
+                }
+            });
+        }
+
+        function triggerCueRemote(cueId) {
             if (remoteMode === 'edit') return;
-            if (isTriggeringCueLocked) {
-                console.log(`REMOTE.HTML: Trigger for ${cueId} blocked by global lock.`);
+            const now = Date.now();
+            const lastSent = lastRemoteTriggerSentByCueId.get(cueId);
+            if (lastSent && now - lastSent < REMOTE_CLIENT_TRIGGER_GUARD_MS) {
                 return;
             }
-            
-            console.log(`REMOTE.HTML: Sending trigger_cue for ${cueId}`);
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ action: 'trigger_cue', cueId: cueId }));
-                
-                isTriggeringCueLocked = true;
-                console.log(`REMOTE.HTML: Global cue trigger lock ENGAGED for ${CUE_TRIGGER_LOCK_MS}ms.`);
-                setTimeout(() => {
-                    isTriggeringCueLocked = false;
-                    console.log('REMOTE.HTML: Global cue trigger lock RELEASED.');
-                }, CUE_TRIGGER_LOCK_MS);
-            }
-        }, 300); // 300ms debounce
+            lastRemoteTriggerSentByCueId.set(cueId, now);
+            sendRemoteAction('trigger_cue', { cueId });
+        }
 
-        // Debounced stopAllCues function
-        const debouncedStopAllCues = debounce(function() {
-            console.log('REMOTE.HTML: Sending stop_all_cues');
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ action: 'stop_all_cues' }));
-            }
-        }, 300);
+        function stopAllCuesRemote() {
+            applyOptimisticStopAllFeedback();
+            sendRemoteAction('stop_all_cues');
+        }
 
         const DEFAULT_CUE_BUTTON_COLOR = '#3a3a3a';
         const PRESET_BUTTON_COLORS = [
@@ -3803,7 +3798,7 @@
                 updateButtonStatusClass(button, cue.status, cue);
                 ensureWaveformForButton(button, cue);
                 RemoteBadgeUtils.updateCueIndicatorStrip(button, cue, appConfigRemote);
-                button.addEventListener('click', () => debouncedTriggerCue(cue.id));
+                button.addEventListener('click', () => triggerCueRemote(cue.id));
 
                 const meterContainer = document.createElement('div');
                 meterContainer.className = 'cue-audio-meter-container';
@@ -4324,7 +4319,7 @@
         }
         
         if (stopAllButtonRemote) {
-            stopAllButtonRemote.addEventListener('click', debouncedStopAllCues);
+            stopAllButtonRemote.addEventListener('click', stopAllCuesRemote);
         }
         if (remoteWaveformToolbarBtn) {
             remoteWaveformToolbarBtn.addEventListener('click', () => {

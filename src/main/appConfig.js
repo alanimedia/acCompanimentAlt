@@ -27,6 +27,8 @@ const DEFAULT_CONFIG = {
   defaultStopAllFadeOutTime: 1500, // Default fade out time for stop all in milliseconds
   crossfadeTime: 2000, // Default crossfade duration in ms
   audioOutputDeviceId: 'default',
+  audioMonitorOutputDeviceId: 'default',
+  routeShowPlaybackToMonitor: false,
   theme: 'system', // 'light', 'dark', or 'system'
   // WebSocket Server Settings for Companion
   websocketEnabled: true, // Enable/disable WebSocket server for Companion

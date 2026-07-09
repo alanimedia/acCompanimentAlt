@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.7.1
+
+### Added
+- Second audio output (Monitor/Preview) with separate device selection in app config
+- Optional live show playback mirror to the monitor output (`routeShowPlaybackToMonitor`)
+- `audioOutputRouting.js` and `playbackMonitorOutput.js` for WaveSurfer preview routing and Howl monitor sync
+
+### Changed
+- Web remote cue trigger and stop-all send immediately (removed 300ms debounce and 500ms client lock)
+- Play/pause/stopped status pushed to web remote as soon as the audio engine reports it, not only on time ticks
+- Server-side duplicate remote trigger guard reduced from 400ms to 150ms
+- Stop All on web remote clears playing/paused button state optimistically
+
 ## 1.7.0
 
 ### Added

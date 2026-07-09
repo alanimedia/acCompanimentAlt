@@ -31,6 +31,58 @@ function getButtonWaveformFieldsForRemote(cue) {
     };
 }
 
+function buildRemoteStatusCueUpdate(cueManager, cueId, status, details = {}) {
+    const currentCue = cueManager ? cueManager.getCueById(cueId) : null;
+    if (!currentCue) return null;
+
+    let durationS = calculateEffectiveTrimmedDurationSec(currentCue);
+    let originalKnownDurationS = currentCue.knownDuration || 0;
+    let playlistItemName = details.playlistItemName || null;
+    let nextItemName = null;
+
+    if (currentCue.type === 'playlist' && currentCue.playlistItems && currentCue.playlistItems.length > 0) {
+        if (playlistItemName) {
+            const activeItem = currentCue.playlistItems.find(item => item.name === playlistItemName);
+            if (activeItem) {
+                durationS = calculateEffectiveTrimmedDurationSec(activeItem);
+                originalKnownDurationS = activeItem.knownDuration || 0;
+            }
+        } else if (status === 'cued_next') {
+            const nextItem = details && details.nextItem
+                ? currentCue.playlistItems.find(item => item.name === details.nextItem) || currentCue.playlistItems[0]
+                : currentCue.playlistItems[0];
+            durationS = calculateEffectiveTrimmedDurationSec(nextItem);
+            originalKnownDurationS = nextItem.knownDuration || 0;
+            nextItemName = nextItem.name || 'Next Item';
+        }
+    }
+
+    const remoteStatus = status === 'cued_next' ? 'cued' : status;
+
+    const cuePayload = {
+        id: cueId,
+        name: currentCue.name,
+        type: currentCue.type,
+        status: remoteStatus,
+        currentItemDurationS: durationS,
+        currentItemRemainingTimeS: durationS,
+        playlistItemName: remoteStatus === 'cued' ? null : playlistItemName,
+        nextPlaylistItemName: nextItemName,
+        knownDurationS: originalKnownDurationS,
+        buttonColor: currentCue.buttonColor || null,
+        ...getButtonWaveformFieldsForRemote(currentCue)
+    };
+
+    if (remoteStatus === 'stopped' || remoteStatus === 'cued') {
+        cuePayload.currentTimeS = 0;
+    }
+
+    return {
+        type: 'remote_cue_update',
+        cue: cuePayload
+    };
+}
+
 function registerAudioHandlers(ipcMain, { cueManager, workspaceManager, mainWindow, websocketServer, httpServer, appConfigManager }) {
     appConfigManagerRef = appConfigManager;
     ipcMain.handle('get-cues', async (event) => {
@@ -117,46 +169,11 @@ function registerAudioHandlers(ipcMain, { cueManager, workspaceManager, mainWind
     ipcMain.on('cue-status-update', (event, { cueId, status, details }) => {
         logger.info(`[IPC_DEBUG] Cue status update: ${cueId} - ${status}`, details);
 
-        // Send cued state updates to HTTP remote
-        if (httpServer && typeof httpServer.broadcastToRemotes === 'function' && status === 'cued_next') {
-            const currentCue = cueManager ? cueManager.getCueById(cueId) : null;
-            if (currentCue) {
-                logger.info(`HTTP_SERVER: Sending cued state update for playlist ${cueId} to remote`);
-                
-                let cuedDurationS = 0;
-                let originalKnownDurationS = 0;
-                let nextItemName = null;
-
-                if (currentCue.type === 'playlist' && currentCue.playlistItems && currentCue.playlistItems.length > 0) {
-                    // For cued playlists, calculate duration of the next item
-                    const nextItem = details && details.nextItem ?
-                        currentCue.playlistItems.find(item => item.name === details.nextItem) || currentCue.playlistItems[0] :
-                        currentCue.playlistItems[0];
-
-                    cuedDurationS = calculateEffectiveTrimmedDurationSec(nextItem);
-                    originalKnownDurationS = nextItem.knownDuration || 0;
-                    nextItemName = nextItem.name || 'Next Item';
-                } else {
-                    cuedDurationS = calculateEffectiveTrimmedDurationSec(currentCue);
-                    originalKnownDurationS = currentCue.knownDuration || 0;
-                }
-
-                const cuedUpdate = {
-                    type: 'remote_cue_update',
-                    cue: {
-                        id: cueId,
-                        name: currentCue.name,
-                        type: currentCue.type,
-                        status: 'cued', // Convert 'cued_next' to 'cued' for remote
-                        currentTimeS: 0,
-                        currentItemDurationS: cuedDurationS,
-                        currentItemRemainingTimeS: cuedDurationS,
-                        playlistItemName: null, // Not currently playing
-                        nextPlaylistItemName: nextItemName,
-                        knownDurationS: originalKnownDurationS
-                    }
-                };
-                httpServer.broadcastToRemotes(cuedUpdate);
+        const remoteStatuses = new Set(['cued_next', 'playing', 'paused', 'stopped']);
+        if (httpServer && typeof httpServer.broadcastToRemotes === 'function' && remoteStatuses.has(status)) {
+            const statusUpdate = buildRemoteStatusCueUpdate(cueManager, cueId, status, details || {});
+            if (statusUpdate) {
+                httpServer.broadcastToRemotes(statusUpdate);
             }
         }
     });

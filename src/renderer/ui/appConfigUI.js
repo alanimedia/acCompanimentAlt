@@ -10,6 +10,10 @@ import {
     renderRetriggerLegend
 } from '../retriggerBehaviorCatalog.js';
 import { refreshAllCueBadges } from './cueGrid.js';
+import {
+    setMonitorOutputDeviceId,
+    setRouteShowPlaybackToMonitor
+} from '../audioOutputRouting.js';
 
 // let ipcRendererBindings; // REMOVE: This will now refer to the imported module alias
 
@@ -48,6 +52,8 @@ let configCrossfadeTimeInput;
 
 // Audio Settings
 let configAudioOutputDeviceSelect;
+let configAudioMonitorOutputDeviceSelect;
+let configRouteShowPlaybackToMonitorCheckbox;
 
 // UI Settings
 // let configShowQuickControlsCheckbox; // REMOVED
@@ -112,6 +118,25 @@ function syncAppConfigToAudioController(config) {
     if (audioControllerRef && typeof audioControllerRef.updateAppConfig === 'function') {
         audioControllerRef.updateAppConfig(config);
     }
+    if (config) {
+        setMonitorOutputDeviceId(config.audioMonitorOutputDeviceId || 'default');
+        setRouteShowPlaybackToMonitor(config.routeShowPlaybackToMonitor === true);
+    }
+}
+
+async function applyAudioRoutingFromConfig(config) {
+    if (!audioControllerRef || !config) return;
+    try {
+        if (config.audioOutputDeviceId) {
+            await audioControllerRef.setAudioOutputDevice(config.audioOutputDeviceId);
+        }
+        if (typeof audioControllerRef.setMonitorOutputDevice === 'function') {
+            await audioControllerRef.setMonitorOutputDevice(config.audioMonitorOutputDeviceId || 'default');
+        }
+        setRouteShowPlaybackToMonitor(config.routeShowPlaybackToMonitor === true);
+    } catch (error) {
+        uiLog.error('AppConfigUI: Error applying audio routing from config:', error);
+    }
 }
 
 function setAudioControllerRef(audioController) {
@@ -149,6 +174,8 @@ function cacheDOMElements() {
 
     // Audio Settings
     configAudioOutputDeviceSelect = document.getElementById('configAudioOutputDevice');
+    configAudioMonitorOutputDeviceSelect = document.getElementById('configAudioMonitorOutputDevice');
+    configRouteShowPlaybackToMonitorCheckbox = document.getElementById('configRouteShowPlaybackToMonitor');
 
     // HTTP Remote Control Elements
     configHttpRemoteEnabledCheckbox = document.getElementById('configHttpRemoteEnabled');
@@ -292,6 +319,16 @@ function populateConfigSidebar(config) {
             configAudioOutputDeviceSelect.value = currentAppConfig.audioOutputDeviceId;
         } else if (configAudioOutputDeviceSelect) {
             configAudioOutputDeviceSelect.value = 'default';
+        }
+
+        if (configAudioMonitorOutputDeviceSelect && currentAppConfig.audioMonitorOutputDeviceId) {
+            configAudioMonitorOutputDeviceSelect.value = currentAppConfig.audioMonitorOutputDeviceId;
+        } else if (configAudioMonitorOutputDeviceSelect) {
+            configAudioMonitorOutputDeviceSelect.value = 'default';
+        }
+
+        if (configRouteShowPlaybackToMonitorCheckbox) {
+            configRouteShowPlaybackToMonitorCheckbox.checked = currentAppConfig.routeShowPlaybackToMonitor === true;
         }
 
         // Mixer config population removed
@@ -451,79 +488,62 @@ function handleStopAllBehaviorChange() {
 }
 
 
+async function populateAudioOutputSelect(selectEl, selectedDeviceId) {
+    if (!selectEl) return;
+
+    selectEl.innerHTML = '';
+    const defaultOption = document.createElement('option');
+    defaultOption.value = 'default';
+    defaultOption.textContent = 'System Default';
+    selectEl.appendChild(defaultOption);
+
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            devices
+                .filter((device) => device.kind === 'audiooutput')
+                .forEach((device) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.textContent = device.label || `Audio Output ${device.deviceId.substring(0, 8)}...`;
+                    selectEl.appendChild(option);
+                });
+        } catch (deviceError) {
+            uiLog.warn('AppConfigUI: Error enumerating audio output devices:', deviceError);
+            const fallbackOption = document.createElement('option');
+            fallbackOption.value = 'default';
+            fallbackOption.textContent = 'System Default (Device list unavailable)';
+            selectEl.appendChild(fallbackOption);
+        }
+    }
+
+    selectEl.value = selectedDeviceId || 'default';
+}
+
 async function loadAudioOutputDevices() {
-    if (!configAudioOutputDeviceSelect) {
-        uiLog.warn('AppConfigUI: configAudioOutputDeviceSelect element not found.');
+    if (!configAudioOutputDeviceSelect && !configAudioMonitorOutputDeviceSelect) {
+        uiLog.warn('AppConfigUI: Audio output select elements not found.');
         return;
     }
 
     try {
         uiLog.info('AppConfigUI: Loading audio output devices...');
-        
-        // Clear existing options
-        configAudioOutputDeviceSelect.innerHTML = '';
-
-        // Add default option first
-        const defaultOption = document.createElement('option');
-        defaultOption.value = 'default';
-        defaultOption.textContent = 'System Default';
-        configAudioOutputDeviceSelect.appendChild(defaultOption);
-
-        // Try to enumerate audio devices
-        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-            try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                uiLog.debug('AppConfigUI: Enumerated devices:', devices);
-                
-                // Filter to only audio output devices
-                const audioOutputDevices = devices.filter(device => device.kind === 'audiooutput');
-                uiLog.info('AppConfigUI: Audio output devices found:', audioOutputDevices.length);
-                
-                audioOutputDevices.forEach(device => {
-                    const option = document.createElement('option');
-                    option.value = device.deviceId;
-                    option.textContent = device.label || `Audio Output Device ${device.deviceId.substring(0, 8)}...`;
-                    configAudioOutputDeviceSelect.appendChild(option);
-                });
-                
-                if (audioOutputDevices.length > 0) {
-                    uiLog.info('AppConfigUI: Added', audioOutputDevices.length, 'audio output devices to selection');
-                } else {
-                    uiLog.info('AppConfigUI: No additional audio output devices found, using system default only');
-                }
-            } catch (deviceError) {
-                uiLog.warn('AppConfigUI: Error enumerating devices:', deviceError);
-                uiLog.info('AppConfigUI: Falling back to system default only');
-                
-                // Add a user-friendly message option
-                const fallbackOption = document.createElement('option');
-                fallbackOption.value = 'default';
-                fallbackOption.textContent = 'System Default (Device list unavailable)';
-                configAudioOutputDeviceSelect.appendChild(fallbackOption);
-            }
-        } else {
-            uiLog.warn('AppConfigUI: navigator.mediaDevices.enumerateDevices not available');
-        }
-
-        // Set the selected value based on current config
-        if (currentAppConfig && currentAppConfig.audioOutputDeviceId) {
-            configAudioOutputDeviceSelect.value = currentAppConfig.audioOutputDeviceId;
-        } else {
-            configAudioOutputDeviceSelect.value = 'default';
-        }
-
-        uiLog.info('AppConfigUI: Audio output device selection completed. Selected:', configAudioOutputDeviceSelect.value);
-
+        const mainSelected = currentAppConfig?.audioOutputDeviceId || 'default';
+        const monitorSelected = currentAppConfig?.audioMonitorOutputDeviceId || 'default';
+        await populateAudioOutputSelect(configAudioOutputDeviceSelect, mainSelected);
+        await populateAudioOutputSelect(configAudioMonitorOutputDeviceSelect, monitorSelected);
+        uiLog.info('AppConfigUI: Audio output device selection completed.');
     } catch (error) {
         uiLog.error('AppConfigUI: Error loading audio output devices:', error);
-        
-        // Clear and add error option
-        configAudioOutputDeviceSelect.innerHTML = '';
-        const errorOption = document.createElement('option');
-        errorOption.value = 'default';
-        errorOption.textContent = 'System Default (Error loading devices)';
-        configAudioOutputDeviceSelect.appendChild(errorOption);
-        configAudioOutputDeviceSelect.value = 'default';
+        [configAudioOutputDeviceSelect, configAudioMonitorOutputDeviceSelect].forEach((selectEl) => {
+            if (!selectEl) return;
+            selectEl.innerHTML = '';
+            const errorOption = document.createElement('option');
+            errorOption.value = 'default';
+            errorOption.textContent = 'System Default (Error loading devices)';
+            selectEl.appendChild(errorOption);
+            selectEl.value = 'default';
+        });
     }
 }
 
@@ -559,6 +579,8 @@ function gatherConfigFromUI() {
             : false,
         
         audioOutputDeviceId: configAudioOutputDeviceSelect ? configAudioOutputDeviceSelect.value : 'default',
+        audioMonitorOutputDeviceId: configAudioMonitorOutputDeviceSelect ? configAudioMonitorOutputDeviceSelect.value : 'default',
+        routeShowPlaybackToMonitor: configRouteShowPlaybackToMonitorCheckbox ? configRouteShowPlaybackToMonitorCheckbox.checked : false,
         
         // theme setting is not directly edited here, but preserved if it exists
         theme: currentAppConfig.theme || 'system',
@@ -611,42 +633,24 @@ async function saveAppConfiguration() {
         if (result && result.success) {
             uiLog.info('AppConfigUI: App configuration successfully saved via main process.');
             
-            // Apply audio output device change if audioControllerRef is available
-            if (audioControllerRef && configToSave.audioOutputDeviceId !== currentAppConfig.audioOutputDeviceId) {
-                uiLog.info('AppConfigUI: Audio output device changed from', currentAppConfig.audioOutputDeviceId, 'to', configToSave.audioOutputDeviceId);
-                uiLog.info('AppConfigUI: Applying audio output device change to audio system...');
+            if (audioControllerRef) {
                 try {
-                    await audioControllerRef.setAudioOutputDevice(configToSave.audioOutputDeviceId);
-                    uiLog.info('AppConfigUI: Audio output device successfully changed.');
-                    
-                    // Get device name for user feedback
-                    const deviceSelect = document.getElementById('configAudioOutputDevice');
-                    const selectedOption = deviceSelect ? deviceSelect.options[deviceSelect.selectedIndex] : null;
-                    const deviceName = selectedOption ? selectedOption.textContent : 'Selected Device';
-                    
-                    // Show success feedback (you can replace this with a proper notification system)
-                    uiLog.info(`✅ Audio output switched to: ${deviceName}`);
-                    
-                } catch (error) {
-                    uiLog.error('AppConfigUI: Error changing audio output device:', error);
-                    
-                    // Show error feedback to user
-                    uiLog.error(`❌ Failed to switch audio output: ${error.message}`);
-                    
-                    // Show user-friendly error notification
-                    const errorMsg = `Failed to switch audio output device. ${error.message || 'Unknown error occurred.'}`;
-                    
-                    // Try to show a more visible error notification
-                    if (typeof window !== 'undefined' && window.alert) {
-                        // Simple alert as fallback - in a real app you'd want a better notification system
-                        uiLog.error('Audio device change failed:', errorMsg);
-                        // Note: Using console.error instead of alert to avoid blocking the UI
+                    if (configToSave.audioOutputDeviceId !== currentAppConfig.audioOutputDeviceId) {
+                        uiLog.info('AppConfigUI: Main audio output changed to', configToSave.audioOutputDeviceId);
+                        await audioControllerRef.setAudioOutputDevice(configToSave.audioOutputDeviceId);
                     }
-                    
-                    // Revert the UI selection to the previous device
+                    if (configToSave.audioMonitorOutputDeviceId !== currentAppConfig.audioMonitorOutputDeviceId
+                        && typeof audioControllerRef.setMonitorOutputDevice === 'function') {
+                        uiLog.info('AppConfigUI: Monitor audio output changed to', configToSave.audioMonitorOutputDeviceId);
+                        await audioControllerRef.setMonitorOutputDevice(configToSave.audioMonitorOutputDeviceId);
+                    }
+                } catch (error) {
+                    uiLog.error('AppConfigUI: Error applying audio routing changes:', error);
                     if (configAudioOutputDeviceSelect) {
                         configAudioOutputDeviceSelect.value = currentAppConfig.audioOutputDeviceId || 'default';
-                        uiLog.info('AppConfigUI: Reverted device selection to previous value');
+                    }
+                    if (configAudioMonitorOutputDeviceSelect) {
+                        configAudioMonitorOutputDeviceSelect.value = currentAppConfig.audioMonitorOutputDeviceId || 'default';
                     }
                 }
             }
@@ -676,6 +680,7 @@ async function forceLoadAndApplyAppConfiguration() {
         populateConfigSidebar(loadedConfig);
         syncAppConfigToAudioController(loadedConfig);
         await loadAudioOutputDevices();
+        await applyAudioRoutingFromConfig(loadedConfig);
         return loadedConfig; 
     } catch (error) {
         uiLog.error('AppConfigUI: Error loading app configuration from main:', error);
