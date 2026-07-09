@@ -560,8 +560,7 @@ function updateConfig(newConfig) {
     broadcastConfigSnapshot();
 
     if (newConfig.defaultShowButtonWaveform !== prevDefaultShowButtonWaveform && cueManagerRef) {
-        const cues = cueManagerRef.getCues();
-        broadcastToRemotes({ type: 'all_cues', payload: formatCuesForRemote(cues) });
+        broadcastToRemotes(formatWorkspaceBroadcast(cueManagerRef));
     }
 }
 

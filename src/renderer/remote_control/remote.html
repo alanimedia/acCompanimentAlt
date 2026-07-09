@@ -51,8 +51,11 @@
             flex: 1 1 auto;
             min-height: 0;
             overflow-y: auto;
+            overflow-x: hidden;
             overflow-anchor: none;
             -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+            overscroll-behavior-y: contain;
             box-sizing: border-box;
             scroll-padding-bottom: var(--remote-waveform-panel-height, 0px);
         }
@@ -162,6 +165,13 @@
             gap: 15px;
             align-items: start;
         }
+        /* iPad / tablet portrait playback: shrink cards slightly so five fit per row */
+        @media (max-width: 900px) and (orientation: portrait) {
+            body:not(.remote-edit-mode) .remote-section-body {
+                grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+                gap: 12px;
+            }
+        }
         body.remote-edit-mode .remote-section-body {
             grid-template-columns: repeat(auto-fill, 220px);
         }
@@ -198,6 +208,7 @@
             width: 100%;
             height: 100%;
             min-height: 0;
+            touch-action: pan-y;
         }
         .cue-button-remote:hover:not(.playing):not(.paused):not(.cued) {
             filter: brightness(1.08);
@@ -1577,6 +1588,36 @@
 
         const cueGridRemote = document.getElementById('cueGridRemote');
         const remoteMain = document.getElementById('remoteMain');
+        let remoteInitialCuesReceived = false;
+
+        function remoteGridHasCueCards() {
+            if (!cueGridRemote) return false;
+            return cueGridRemote.querySelector('.cue-remote-wrapper, .cue-edit-card') != null;
+        }
+
+        function showRemoteGridLoading() {
+            if (!cueGridRemote) return;
+            cueGridRemote.innerHTML = '<p style="text-align: center; color: #888;">Loading cues…</p>';
+        }
+
+        ws.onopen = () => {
+            console.log('Connected to acCompaniment WebSocket');
+            ws.send(JSON.stringify({ action: 'request_all_cues_for_remote' }));
+        };
+
+        ws.onclose = (event) => {
+            console.log('WebSocket connection closed:', event.code, event.reason);
+            if (cueGridRemote) {
+                cueGridRemote.innerHTML = '<p style="color: #ff6b6b; text-align: center;">Connection lost. Please refresh the page.</p>';
+            }
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            if (cueGridRemote) {
+                cueGridRemote.innerHTML = '<p style="color: #ff6b6b; text-align: center;">Connection error. Please refresh.</p>';
+            }
+        };
         const stopAllButtonRemote = document.getElementById('stopAllButtonRemote');
         const remoteWaveformToolbarBtn = document.getElementById('remoteWaveformToolbarBtn');
         const remoteWaveformCloseBtn = document.getElementById('remoteWaveformCloseBtn');
@@ -1758,7 +1799,7 @@
             sendRemoteAction('update_cue', { cueId, patch: { volume } });
         }, 500);
 
-        function hasRemoteCueStructureChanged(prevCues, message) {
+        function hasRemoteCueStructureChanged(prevCues, message, prevSections = [], prevLayout = []) {
             const prevIds = new Set(Object.keys(prevCues || {}));
             const nextPayload = Array.isArray(message.payload) ? message.payload : [];
             const nextIds = new Set(nextPayload.map((cue) => cue.id));
@@ -1768,9 +1809,15 @@
             }
             const nextSections = JSON.stringify(message.sections || []);
             const nextLayout = JSON.stringify(message.layout || []);
-            if (JSON.stringify(currentSections) !== nextSections) return true;
-            if (JSON.stringify(currentLayout) !== nextLayout) return true;
+            if (JSON.stringify(prevSections || []) !== nextSections) return true;
+            if (JSON.stringify(prevLayout || []) !== nextLayout) return true;
             return false;
+        }
+
+        function shouldFullRenderRemoteGrid(prevCues, message, prevSections, prevLayout) {
+            if (remoteMode === 'edit') return true;
+            if (!remoteGridHasCueCards() && Object.keys(currentCues).length > 0) return true;
+            return hasRemoteCueStructureChanged(prevCues, message, prevSections, prevLayout);
         }
 
         function patchPlaybackCuesInPlace(cues) {
@@ -1792,7 +1839,11 @@
             if (stopAllButtonRemote) stopAllButtonRemote.classList.toggle('hidden', remoteMode === 'edit');
             if (remoteWaveformToolbarBtn) remoteWaveformToolbarBtn.classList.toggle('hidden', remoteMode === 'edit');
             closeAllPanels();
-            renderAllCuesRemote(Object.values(currentCues));
+            if (remoteInitialCuesReceived || Object.keys(currentCues).length > 0) {
+                renderAllCuesRemote(Object.values(currentCues));
+            } else {
+                showRemoteGridLoading();
+            }
         }
 
         function closeAllPanels() {
@@ -2155,6 +2206,7 @@
         setupRemoteRetriggerUi();
         bindSettingsFormEvents();
         bindCuePropertiesFormEvents();
+        showRemoteGridLoading();
         setRemoteMode(remoteMode);
 
         // Diagnostic functions
@@ -2168,12 +2220,6 @@
         
         // Diagnostic UI removed
 
-        ws.onopen = () => {
-            console.log('Connected to acCompaniment WebSocket');
-            // Diagnostic UI removed
-            ws.send(JSON.stringify({ action: 'request_all_cues_for_remote' }));
-        };
-
         ws.onmessage = (event) => {
             try {
                 const message = JSON.parse(event.data);
@@ -2181,16 +2227,22 @@
                 
                 if (message.type === 'all_cues') {
                     const prevCues = { ...currentCues };
+                    const prevSections = [...currentSections];
+                    const prevLayout = [...currentLayout];
                     currentCues = {};
                     if (message.payload && Array.isArray(message.payload)) {
                         message.payload.forEach((cue) => {
                             const merged = mergeRemotePlaybackState(prevCues[cue.id], cue);
                             currentCues[cue.id] = merged;
                         });
-                        currentSections = Array.isArray(message.sections) ? message.sections : [];
-                        currentLayout = Array.isArray(message.layout) ? message.layout : [];
-                        const structureChanged = hasRemoteCueStructureChanged(prevCues, message);
-                        if (structureChanged || remoteMode === 'edit') {
+                        if (Array.isArray(message.sections)) {
+                            currentSections = message.sections;
+                        }
+                        if (Array.isArray(message.layout)) {
+                            currentLayout = message.layout;
+                        }
+                        remoteInitialCuesReceived = true;
+                        if (shouldFullRenderRemoteGrid(prevCues, message, prevSections, prevLayout)) {
                             renderAllCuesRemote(Object.values(currentCues));
                         } else {
                             patchPlaybackCuesInPlace(Object.values(currentCues));
@@ -2203,7 +2255,9 @@
                         }
                     } else {
                         console.error('[DIAGNOSTIC] Remote received all_cues but payload is missing or not an array:', message);
-                        renderAllCuesRemote([]); // Render empty or handle error
+                        if (!remoteInitialCuesReceived) {
+                            renderAllCuesRemote([]);
+                        }
                     }
                 } else if (message.type === 'config_snapshot') {
                     if (message.payload) {
@@ -2264,16 +2318,6 @@
                 console.error('Error parsing WebSocket message:', error);
                 console.error('Raw message:', event.data);
             }
-        };
-
-        ws.onclose = (event) => {
-            console.log('WebSocket connection closed:', event.code, event.reason);
-            cueGridRemote.innerHTML = `<p style="color: #ff6b6b; text-align: center;">Connection lost. Please refresh the page.</p>`;
-        };
-
-        ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            cueGridRemote.innerHTML = `<p style="color: #ff6b6b; text-align: center;">Connection error. Please refresh.</p>`;
         };
 
         // Debounced triggerCue function
@@ -2424,6 +2468,26 @@
             return remoteMain || cueGridRemote;
         }
 
+        let remoteScrollRestoreLockUntil = 0;
+
+        function bumpRemoteScrollRestoreLock(durationMs = 900) {
+            remoteScrollRestoreLockUntil = Date.now() + durationMs;
+        }
+
+        function shouldSkipRemoteScrollRestore() {
+            return Date.now() < remoteScrollRestoreLockUntil;
+        }
+
+        function bindRemoteMainScrollMomentum() {
+            if (!remoteMain || remoteMain.dataset.scrollMomentumBound === 'true') return;
+            remoteMain.dataset.scrollMomentumBound = 'true';
+            remoteMain.addEventListener('touchstart', () => bumpRemoteScrollRestoreLock(900), { passive: true });
+            remoteMain.addEventListener('touchmove', () => bumpRemoteScrollRestoreLock(900), { passive: true });
+            remoteMain.addEventListener('scroll', () => {
+                if ('ontouchstart' in window) bumpRemoteScrollRestoreLock(500);
+            }, { passive: true });
+        }
+
         function captureRemoteScrollPosition() {
             const container = getRemoteScrollContainer();
             if (!container) return null;
@@ -2431,18 +2495,11 @@
         }
 
         function restoreRemoteScrollPosition(saved) {
-            if (!saved) return;
+            if (!saved || shouldSkipRemoteScrollRestore()) return;
             const container = getRemoteScrollContainer();
             if (!container) return;
-            const apply = () => {
-                container.scrollTop = saved.top;
-                container.scrollLeft = saved.left;
-            };
-            apply();
-            requestAnimationFrame(() => {
-                apply();
-                requestAnimationFrame(apply);
-            });
+            container.scrollTop = saved.top;
+            container.scrollLeft = saved.left;
         }
 
         function isRemoteWaveformPanelEnabled() {
@@ -2539,7 +2596,6 @@
         }
 
         function updateRemotePanelHeader() {
-            const savedScroll = captureRemoteScrollPosition();
             const count = remoteWaveformLaneMap.size;
             if (!remoteWaveformTitle || !remoteWaveformTime) return;
 
@@ -2555,7 +2611,6 @@
                 remoteWaveformTitle.textContent = `${count} cues playing`;
                 remoteWaveformTime.style.display = 'none';
             }
-            restoreRemoteScrollPosition(savedScroll);
         }
 
         function syncRemoteLanesLayout() {
@@ -4237,7 +4292,6 @@
         }
 
         function updateCueButtonRemote(cue) {
-            const savedScroll = captureRemoteScrollPosition();
             const wrapper = cueGridRemote.querySelector(`.cue-remote-wrapper[data-cue-id="${cue.id}"]`);
             const button = wrapper?.querySelector('.cue-button-remote') || cueGridRemote.querySelector(`.cue-button-remote[data-cue-id="${cue.id}"]`);
             if (cue?.id) {
@@ -4255,7 +4309,6 @@
             }
             updateRemoteCueMeter(cue);
             handleRemoteWaveformUpdate(cue);
-            restoreRemoteScrollPosition(savedScroll);
         }
 
         function updateButtonStatusClass(button, status, cue) {
@@ -4292,6 +4345,7 @@
 
         setRemotePanelHeight(remotePanelHeight);
         bindRemotePanelResize();
+        bindRemoteMainScrollMomentum();
         if (remoteWaveformLanes && typeof ResizeObserver !== 'undefined') {
             new ResizeObserver(() => scheduleRemoteLanesResizeRedraw()).observe(remoteWaveformLanes);
         }
