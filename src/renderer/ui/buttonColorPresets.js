@@ -3,6 +3,8 @@
 export const DEFAULT_CUE_BUTTON_COLOR = '#3a3a3a';
 export const CUE_PLAYING_GREEN = '#228b22';
 export const MAX_RECENT_CUSTOM_COLORS = 8;
+/** Recent custom slots shown on edit cue cards (custom picker + this many history swatches). */
+export const EDIT_CARD_RECENT_COLOR_SLOTS = 7;
 
 /** WCAG relative luminance above this → black text; at or below → white text (~mid-gray). */
 export const TEXT_LUMINANCE_THRESHOLD = 0.5;

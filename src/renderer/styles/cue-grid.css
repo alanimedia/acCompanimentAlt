@@ -196,28 +196,33 @@ input.cue-section-title {
 }
 
 #appContainer.edit-mode .cue-wrapper {
-    aspect-ratio: auto;
+    aspect-ratio: 1 / 1;
     min-height: 0;
+    overflow: hidden;
 }
 
 #appContainer.edit-mode .cue-section-body {
-    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    grid-template-columns: repeat(auto-fill, 200px);
+    align-items: start;
 }
 
 .cue-edit-card {
     background: #2f2f2f;
     border: 2px solid #666;
     border-radius: 8px;
-    padding: 10px;
+    padding: 38px 10px 8px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    cursor: default;
+    gap: 6px;
+    cursor: pointer;
     box-sizing: border-box;
     width: 100%;
+    height: 100%;
     flex: 1 1 auto;
     min-height: 0;
+    overflow: hidden;
     touch-action: manipulation;
+    position: relative;
 }
 
 .cue-edit-card:hover {
@@ -231,11 +236,17 @@ input.cue-section-title {
 }
 
 .cue-edit-top {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    left: auto;
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 8px;
-    padding-right: 18px;
+    gap: 6px;
+    padding: 0;
+    z-index: 8;
+    flex-shrink: 0;
 }
 
 .cue-edit-top-right {
@@ -244,22 +255,14 @@ input.cue-section-title {
     gap: 6px;
 }
 
-.cue-edit-color-preview {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    border: 2px solid rgba(255, 255, 255, 0.35);
-    flex-shrink: 0;
-}
-
 .cue-edit-settings-btn {
     background: rgba(0, 0, 0, 0.35);
     border: 1px solid rgba(255, 255, 255, 0.35);
     color: #e0e0e0;
     border-radius: 6px;
-    width: 32px;
-    height: 32px;
-    font-size: 1em;
+    width: 26px;
+    height: 26px;
+    font-size: 0.82em;
     line-height: 1;
     cursor: pointer;
     display: flex;
@@ -274,13 +277,27 @@ input.cue-section-title {
 
 .cue-edit-color-swatches {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 4px;
+    flex-shrink: 0;
+    padding-right: 34px;
+}
+
+.cue-edit-color-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 4px;
+    min-height: 16px;
+}
+
+.cue-edit-color-row-recent {
+    opacity: 0.95;
 }
 
 .cue-color-swatch {
-    width: 18px;
-    height: 18px;
+    width: 15px;
+    height: 15px;
     border-radius: 4px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     cursor: pointer;
@@ -292,6 +309,36 @@ input.cue-section-title {
     outline-offset: 1px;
 }
 
+.cue-color-custom-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.cue-color-custom {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.cue-color-custom:not(.active) {
+    background-image: linear-gradient(135deg, #ff006e 0%, #ffd60a 35%, #00f5ff 70%, #9d4edd 100%) !important;
+}
+
+.cue-color-swatch-empty {
+    background: rgba(255, 255, 255, 0.06);
+    border-style: dashed;
+    opacity: 0.45;
+    cursor: default;
+}
+
+.cue-color-input-hidden {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
+    border: 0;
+    padding: 0;
+}
+
 .cue-edit-name {
     width: 100%;
     box-sizing: border-box;
@@ -299,9 +346,11 @@ input.cue-section-title {
     border-radius: 6px;
     background: rgba(0, 0, 0, 0.25);
     color: inherit;
-    padding: 6px 8px;
-    font-size: 0.92em;
+    padding: 5px 6px;
+    font-size: 0.82em;
     font-family: inherit;
+    flex: 1 1 auto;
+    min-height: 2em;
 }
 
 .cue-edit-name:focus {
@@ -314,10 +363,11 @@ input.cue-section-title {
     grid-template-columns: 1fr auto;
     grid-template-rows: auto auto;
     align-items: center;
-    gap: 4px 8px;
-    font-size: 0.85em;
+    gap: 3px 8px;
+    font-size: 0.75em;
     width: 100%;
     min-width: 0;
+    flex-shrink: 0;
 }
 
 .cue-edit-volume-label {
@@ -343,9 +393,65 @@ input.cue-section-title {
 }
 
 .cue-edit-type {
-    font-size: 0.72em;
-    opacity: 0.7;
-    text-align: center;
+    display: none;
+}
+
+.cue-edit-actions-row,
+.cue-edit-bottom-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    margin-top: auto;
+}
+
+.cue-edit-actions-row {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.cue-edit-reorder-row {
+    display: contents;
+}
+
+.cue-edit-reorder-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.cue-edit-loop-btn {
+    background: rgba(0, 0, 0, 0.55);
+    border: 2px dashed rgba(255, 255, 255, 0.4);
+    color: rgba(255, 255, 255, 0.42);
+    border-radius: 6px;
+    min-width: 32px;
+    min-height: 28px;
+    padding: 0 8px;
+    font-size: 0.92em;
+    font-weight: 700;
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+
+.cue-edit-loop-btn:hover {
+    border-color: rgba(255, 255, 255, 0.65);
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.cue-edit-loop-btn.active,
+.cue-edit-loop-btn[aria-pressed="true"] {
+    background: #d97706;
+    border: 2px solid #fff;
+    color: #fff;
+    opacity: 1;
+    box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.55), 0 0 10px rgba(217, 119, 6, 0.35);
 }
 
 .cue-wrapper {
@@ -355,6 +461,8 @@ input.cue-section-title {
     width: 100%;
     aspect-ratio: 1 / 1;
     height: auto;
+    min-height: 0;
+    overflow: hidden;
     align-self: start;
     gap: 0;
 }
@@ -367,17 +475,6 @@ input.cue-section-title {
     cursor: grabbing;
 }
 
-.cue-select-checkbox {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    z-index: 12;
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-    accent-color: var(--button-primary-bg, #3498db);
-}
-
 .cue-wrapper.cue-selected .cue-button {
     outline: 2px solid var(--button-primary-bg, #3498db);
     outline-offset: 2px;
@@ -385,17 +482,16 @@ input.cue-section-title {
 }
 
 .cue-interactive-container {
-    display: flex;
-    align-items: stretch;
-    gap: 6px;
+    position: relative;
     width: 100%;
     height: 100%;
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 0;
 }
 
 .cue-button {
-    padding: 10px;
+    padding: 8px;
     background-color: var(--cue-default-bg);
     border: 1px solid var(--button-secondary-border);
     border-radius: var(--border-radius);
@@ -408,10 +504,10 @@ input.cue-section-title {
     overflow: hidden;
     color: var(--text-color);
     box-sizing: border-box;
-    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
     min-width: 0;
     min-height: 0;
-    height: 100%;
 }
 
 .cue-button:hover {
@@ -446,13 +542,28 @@ input.cue-section-title {
     color: var(--cue-custom-fg-secondary, var(--text-secondary-color));
 }
 
-.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-retrigger-icon {
+.cue-button.has-custom-color:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-retrigger-icon:not(.icon-image) {
     color: var(--cue-custom-fg, var(--text-color));
-    background: color-mix(in srgb, var(--cue-custom-fg, #e0e0e0) 12%, transparent);
+    background-color: color-mix(in srgb, var(--cue-custom-fg, #e0e0e0) 18%, transparent);
 }
 
-.cue-button.has-custom-color[data-dark-text="true"]:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-loop-icon.enabled {
-    filter: brightness(0);
+.cue-button.has-custom-color[data-dark-text="true"]:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-retrigger-icon.icon-image:not(.icon-image-native) {
+    filter: brightness(0) drop-shadow(0 0 1px rgba(255, 255, 255, 0.8));
+}
+
+.cue-button.has-custom-color:not([data-dark-text="true"]):not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-retrigger-icon.icon-image:not(.icon-image-native) {
+    filter: brightness(0) invert(1) drop-shadow(0 0 1px rgba(0, 0, 0, 0.85));
+}
+
+.cue-button.has-custom-color[data-dark-text="true"]:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-loop-badge.visible {
+    color: var(--cue-custom-fg, var(--text-color));
+    background-color: color-mix(in srgb, var(--cue-custom-fg, #e0e0e0) 18%, transparent);
+    border-color: color-mix(in srgb, var(--cue-custom-fg, #e0e0e0) 28%, transparent);
+}
+
+.cue-button.has-custom-color:not([data-dark-text="true"]):not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-loop-badge.visible {
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.45);
 }
 
 .cue-status-indicator {
@@ -470,37 +581,41 @@ input.cue-section-title {
     object-fit: contain;
 }
 
-.cue-loop-icon {
-    position: absolute;
-    top: 4px;
-    left: 22px;
-    width: 14px;
-    height: 14px;
+.cue-loop-badge {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1;
+    font-family: Georgia, 'Times New Roman', serif;
     display: none;
-    filter: brightness(0) invert(1);
-    transition: opacity 0.15s ease;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     pointer-events: none;
 }
 
-.cue-loop-icon.enabled {
-    display: block;
-    opacity: 1;
+.cue-loop-badge.visible {
+    display: inline-flex;
 }
 
-.cue-retrigger-strip,
+.cue-indicator-strip,
 .cue-duck-strip {
     position: absolute;
     top: 4px;
-    display: none;
     gap: 4px;
     pointer-events: none;
     z-index: 6;
 }
 
-.cue-retrigger-strip {
-    left: 50%;
-    transform: translateX(-50%);
-    justify-content: center;
+.cue-indicator-strip {
+    left: 4px;
+    display: flex;
+    justify-content: flex-start;
     align-items: center;
 }
 
@@ -523,12 +638,36 @@ input.cue-section-title {
     display: inline-flex;
 }
 
-.cue-retrigger-icon.icon-image {
-    background-color: transparent;
+.cue-retrigger-icon.icon-image:not(.icon-image-native) {
+    background-color: transparent !important;
     border: none;
     background-repeat: no-repeat;
     background-position: center;
     background-size: contain;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    filter: brightness(0) drop-shadow(0 0 1px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.85));
+}
+
+.cue-retrigger-icon.icon-image.icon-image-native {
+    background-color: transparent !important;
+    border: none;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.85)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.85));
+}
+
+.cue-button.has-custom-color[data-dark-text="true"]:not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-retrigger-icon.icon-image-native {
+    filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.9));
+}
+
+.cue-button.has-custom-color:not([data-dark-text="true"]):not(.playing):not(.paused):not(.cued):not(.fading):not(.fading-out):not(.fading-in):not(.crossfade-active) .cue-retrigger-icon.icon-image-native {
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
 }
 
 .cue-button.playing .cue-retrigger-icon {
@@ -671,17 +810,21 @@ input.cue-section-title {
 }
 
 .cue-audio-meter-container {
-    flex: 0 0 14px;
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    bottom: 4px;
+    width: 10px;
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    height: 100%;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: var(--border-radius);
     padding: 2px;
     box-sizing: border-box;
     pointer-events: none;
+    z-index: 4;
     transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
@@ -837,14 +980,15 @@ input.cue-section-title {
 /* Drag and Drop Styles for Cue Reordering */
 .cue-drag-gap-placeholder {
     width: 100%;
-    min-height: 132px;
+    aspect-ratio: 1 / 1;
+    min-height: 0;
     border: 2px dashed rgba(52, 152, 219, 0.75);
     border-radius: 8px;
     background: rgba(52, 152, 219, 0.14);
     box-sizing: border-box;
     pointer-events: none;
     align-self: start;
-    transition: min-height 0.12s ease, opacity 0.12s ease;
+    transition: opacity 0.12s ease;
 }
 
 .cue-wrapper.dragging-cue {

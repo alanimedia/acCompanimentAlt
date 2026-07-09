@@ -18,6 +18,11 @@ const {
   sanitizeSection,
   findSectionIdForLayoutIndex
 } = require('./cueLayoutUtils');
+const appConfig = require('./appConfig');
+const {
+  normalizeRetriggerBehaviorOverride,
+  migrateCueRetriggerStorage
+} = require('./retriggerBehaviorUtils');
 // Mixer integration removed as per requirements
 
 const CUES_FILE_NAME = 'cues.json';
@@ -70,13 +75,14 @@ async function loadCuesFromFile() {
     const parsed = JSON.parse(data);
     const wasV1Array = Array.isArray(parsed);
     const workspace = migrateToV2(parsed);
+    const defaultRetrigger = appConfig.getConfig()?.defaultRetriggerBehavior || 'restart';
     cues = workspace.cues.map(cue => {
-      const migratedCue = {
+      const migratedCue = migrateCueRetriggerStorage({
         ...cue,
         enableDucking: cue.enableDucking !== undefined ? cue.enableDucking : false,
         duckingLevel: cue.duckingLevel !== undefined ? cue.duckingLevel : 80,
         isDuckingTrigger: cue.isDuckingTrigger !== undefined ? cue.isDuckingTrigger : false,
-      };
+      }, defaultRetrigger);
       if (migratedCue.hasOwnProperty('x32Trigger')) {
         delete migratedCue.x32Trigger;
       }
@@ -458,34 +464,37 @@ async function addOrUpdateProcessedCue(cueData, workspacePath, options = {}) {
     isNew = false;
   }
 
-  const effectiveRetriggerBehavior = cleanCueData.retriggerBehavior || 'restart';
+  const existingCue = existingCueIndex !== -1 ? cues[existingCueIndex] : null;
+  const mergedCueData = existingCue ? { ...existingCue, ...cleanCueData } : cleanCueData;
+
+  const retriggerOverride = Object.prototype.hasOwnProperty.call(cleanCueData, 'retriggerBehavior')
+    ? normalizeRetriggerBehaviorOverride(cleanCueData.retriggerBehavior)
+    : normalizeRetriggerBehaviorOverride(existingCue?.retriggerBehavior);
 
   const baseCue = {
     id: cueId,
-    name: cleanCueData.name || 'Unnamed Cue',
-    type: cleanCueData.type || 'single_file',
-    filePath: cleanCueData.filePath || null,
-    volume: cleanCueData.volume !== undefined ? cleanCueData.volume : 1,
-    fadeInTime: cleanCueData.fadeInTime || 0,
-    fadeOutTime: cleanCueData.fadeOutTime || 0,
-    loop: cleanCueData.loop || false,
-    retriggerBehavior: effectiveRetriggerBehavior,
-    retriggerAction: effectiveRetriggerBehavior,
-    retriggerActionCompanion: effectiveRetriggerBehavior,
-    knownDuration: cleanCueData.knownDuration || 0,
-    playlistItems: cleanCueData.playlistItems || [],
-    shuffle: cleanCueData.shuffle || false,
-    repeatOne: cleanCueData.repeatOne || false,
-    playlistPlayMode: cleanCueData.playlistPlayMode || 'continue',
-    trimStartTime: (cleanCueData.trimStartTime !== undefined && cleanCueData.trimStartTime !== null) ? cleanCueData.trimStartTime : 0,
-    trimEndTime: (cleanCueData.trimEndTime !== undefined && cleanCueData.trimEndTime !== null) ? cleanCueData.trimEndTime : undefined,
-    enableDucking: cleanCueData.enableDucking !== undefined ? cleanCueData.enableDucking : false,
-    duckingLevel: cleanCueData.duckingLevel !== undefined ? cleanCueData.duckingLevel : 80,
-    isDuckingTrigger: cleanCueData.isDuckingTrigger !== undefined ? cleanCueData.isDuckingTrigger : false,
-    buttonColor: cleanCueData.buttonColor || null,
-    showButtonWaveform: cleanCueData.showButtonWaveform === true
+    name: mergedCueData.name || 'Unnamed Cue',
+    type: mergedCueData.type || 'single_file',
+    filePath: mergedCueData.filePath || null,
+    volume: mergedCueData.volume !== undefined ? mergedCueData.volume : 1,
+    fadeInTime: mergedCueData.fadeInTime || 0,
+    fadeOutTime: mergedCueData.fadeOutTime || 0,
+    loop: mergedCueData.loop || false,
+    retriggerBehavior: retriggerOverride,
+    knownDuration: mergedCueData.knownDuration || 0,
+    playlistItems: mergedCueData.playlistItems || [],
+    shuffle: mergedCueData.shuffle || false,
+    repeatOne: mergedCueData.repeatOne || false,
+    playlistPlayMode: mergedCueData.playlistPlayMode || 'continue',
+    trimStartTime: (mergedCueData.trimStartTime !== undefined && mergedCueData.trimStartTime !== null) ? mergedCueData.trimStartTime : 0,
+    trimEndTime: (mergedCueData.trimEndTime !== undefined && mergedCueData.trimEndTime !== null) ? mergedCueData.trimEndTime : undefined,
+    enableDucking: mergedCueData.enableDucking !== undefined ? mergedCueData.enableDucking : false,
+    duckingLevel: mergedCueData.duckingLevel !== undefined ? mergedCueData.duckingLevel : 80,
+    isDuckingTrigger: mergedCueData.isDuckingTrigger !== undefined ? mergedCueData.isDuckingTrigger : false,
+    buttonColor: mergedCueData.buttonColor || null,
+    showButtonWaveform: mergedCueData.showButtonWaveform === true
         ? true
-        : (cleanCueData.showButtonWaveform === false ? false : null),
+        : (mergedCueData.showButtonWaveform === false ? false : null),
   };
 
   // Ensure playlist items have unique IDs and knownDurations if not present

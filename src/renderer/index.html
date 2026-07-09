@@ -49,17 +49,14 @@
                         <input type="checkbox" id="defaultLoop" name="defaultLoop">
                     </div>
                     <div class="form-group">
-                        <label for="retriggerBehavior">Retrigger Behavior:</label>
-                        <select id="retriggerBehavior">
-                            <option value="fade_out_and_stop">Fade Out and Stop</option>
-                            <option value="restart">Restart</option>
-                            <option value="play_new_instance">Play New Instance (Caution)</option>
-                            <option value="do_nothing">Do Nothing</option>
-                            <option value="stop">Stop</option>
-                            <option value="toggle_pause_play">Toggle Pause/Play</option>
-                            <option value="replay_current_item">Replay Current Item</option>
-                            <option value="play_next_item">Play Next Item (Playlist Only)</option>
-                        </select>
+                        <label for="retriggerBehavior">Default retrigger behavior</label>
+                        <p class="small-text">Applies when a cue button is pressed while that cue is already playing or paused. Every cue button shows its effective retrigger icon.</p>
+                        <select id="retriggerBehavior"></select>
+                        <p id="retriggerBehaviorHelp" class="small-text retrigger-help"></p>
+                        <details class="retrigger-legend">
+                            <summary>Retrigger behavior legend</summary>
+                            <div id="globalRetriggerLegend" class="retrigger-legend-body"></div>
+                        </details>
                     </div>
 
                     <h3>Stop All Behavior</h3>
@@ -259,17 +256,14 @@
                         <input type="checkbox" id="propLoop" name="propLoop">
                     </div>
                     <div class="form-group">
-                        <label for="propRetriggerBehavior">Retrigger Behavior:</label>
-                        <select id="propRetriggerBehavior">
-                            <option value="fade_out_and_stop">Fade Out and Stop</option>
-                            <option value="restart">Restart</option>
-                            <option value="play_new_instance">Play New Instance (Caution)</option>
-                            <option value="do_nothing">Do Nothing</option>
-                            <option value="stop">Stop</option>
-                            <option value="toggle_pause_play">Toggle Pause/Play</option>
-                            <option value="replay_current_item">Replay Current Item</option>
-                            <option value="play_next_item">Play Next Item (Playlist Only)</option>
-                        </select>
+                        <label for="propRetriggerBehavior">Retrigger behavior</label>
+                        <p class="small-text">Override the global default for this cue only, or leave on Use app default.</p>
+                        <select id="propRetriggerBehavior"></select>
+                        <p id="propRetriggerBehaviorHelp" class="small-text retrigger-help"></p>
+                        <details class="retrigger-legend">
+                            <summary>Retrigger behavior legend</summary>
+                            <div id="propRetriggerLegend" class="retrigger-legend-body"></div>
+                        </details>
                     </div>
                     <div class="form-group">
                         <label for="propVolume">Volume (0-1):</label>

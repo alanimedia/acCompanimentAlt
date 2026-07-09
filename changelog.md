@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.6.0
+
+### Added
+- Distinct fade-out-and-stop retrigger icon (shaded-corner stop SVG)
+- Loop (∞) toggle on edit cue cards in Electron and web remote
+- Shared retrigger and loop indicator badges on playback buttons, edit cards, and web remote
+- Edit-card color swatches: preset row plus bottom row with custom picker and seven recent custom colors
+- Click-to-select edit cue cards (click again to deselect; Ctrl/Cmd and Shift range multi-select)
+
+### Changed
+- Cue retrigger behavior now inherits the global app default unless a cue has an explicit override (`null` = use default)
+- Cue properties and web remote use **Use app default** for retrigger, matching button waveform overrides
+- Retrigger settings show descriptive help text for each option and an expandable legend (global settings, per-cue properties, and web remote)
+- Every cue button always shows its effective retrigger behavior icon (app default or cue override)
+- Fade-out-and-stop uses cue fade-out, then default cue fade-out, then Stop All fade time (no longer skips to Stop All when default fade-out is set)
+- Saved app configuration now syncs to the audio engine immediately (fade-out and retrigger timing apply without restart)
+- Retrigger icons remain visible on stopped custom-color cue buttons
+- Retrigger icons use a consistent crossfade image with drop-shadow on all playback states
+- Playback, edit, and web-remote cue cards are square (1:1 aspect ratio)
+- Edit-mode cue cards use inline color swatches and settings cog; selection checkbox removed
+- Hold **` / ~** while in edit mode temporarily shows playback buttons again
+- Web remote edit cards: drag handle moved to bottom row with reorder and loop controls
+
+### Fixed
+- `fade_out_and_stop` retrigger fade duration now respects default cue fade-out before falling back to Stop All fade time
+- Legacy `retriggerAction` fields no longer override cues set to **Use app default**
+- Per-cue retrigger override no longer reverts to **Use app default** when the selected behavior matches the global default
+- Edit cue card click selection and tilde peek playback after edit-card refactor
+- Web remote drag handle overlapping color swatches on edit cards
+- Blue selection outline restored on selected edit cue cards in Electron
+
 ## 1.5.8
 
 ### Fixed

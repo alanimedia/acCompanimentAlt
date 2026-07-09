@@ -158,11 +158,12 @@
         }
         .remote-section-body {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fill, 150px);
+            gap: 15px;
+            align-items: start;
         }
         body.remote-edit-mode .remote-section-body {
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            grid-template-columns: repeat(auto-fill, 220px);
         }
         .remote-section-body.remote-section-drag-over {
             background: rgba(217, 119, 6, 0.12);
@@ -181,8 +182,6 @@
             font-size: 0.85em;
         }
         .cue-button-remote {
-            aspect-ratio: auto;
-            min-height: 140px;
             background-color: #3a3a3a;
             border: 1px solid #555555;
             border-radius: 6px;
@@ -195,6 +194,10 @@
             color: #e0e0e0;
             overflow: hidden;
             box-sizing: border-box;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-height: 0;
         }
         .cue-button-remote:hover:not(.playing):not(.paused):not(.cued) {
             filter: brightness(1.08);
@@ -238,17 +241,18 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            min-height: 48px;
+            min-height: 0;
+            overflow: hidden;
         }
         .cue-button-remote.has-button-waveform {
-            min-height: 140px;
+            min-height: 0;
             padding: 8px 8px 0;
         }
         .cue-button-remote .waveform-wrap {
             flex-shrink: 0;
             width: calc(100% + 16px);
-            height: 52px;
-            min-height: 52px;
+            height: 40px;
+            min-height: 40px;
             margin: 4px -8px 0;
             overflow: hidden;
             background: rgba(0, 0, 0, 0.35);
@@ -295,28 +299,34 @@
             color: #bbbbbb;
         }
         .cue-remote-wrapper {
-            display: flex;
-            align-items: stretch;
-            gap: 6px;
+            position: relative;
+            display: block;
             width: 100%;
-            min-height: 140px;
+            aspect-ratio: 1 / 1;
+            min-height: 0;
+            overflow: hidden;
         }
         .cue-remote-wrapper .cue-button-remote {
-            flex: 1 1 auto;
+            width: 100%;
+            height: 100%;
             min-width: 0;
         }
         .cue-audio-meter-container {
-            flex: 0 0 12px;
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            bottom: 4px;
+            width: 10px;
             display: flex;
             align-items: flex-end;
             justify-content: center;
-            align-self: stretch;
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 4px;
             padding: 2px;
             box-sizing: border-box;
             pointer-events: none;
+            z-index: 4;
             opacity: 0.35;
             transition: opacity 0.15s ease, border-color 0.15s ease;
         }
@@ -631,25 +641,103 @@
             border: 2px dashed rgba(217, 119, 6, 0.45);
             border-radius: 8px;
             margin: 8px auto;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
         }
         .hidden { display: none !important; }
+
+        .cue-indicator-strip {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .cue-retrigger-icon {
+            width: 16px;
+            height: 16px;
+            min-width: 16px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.55);
+            color: #e0e0e0;
+            font-size: 0.72rem;
+            line-height: 1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .cue-retrigger-icon.visible {
+            display: inline-flex;
+        }
+        .cue-retrigger-icon.icon-image:not(.icon-image-native) {
+            background-color: transparent !important;
+            border: none;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            filter: brightness(0) drop-shadow(0 0 1px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.85));
+        }
+        .cue-retrigger-icon.icon-image.icon-image-native {
+            background-color: transparent !important;
+            border: none;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.85)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.85));
+        }
+        .cue-loop-badge {
+            width: 16px;
+            height: 16px;
+            min-width: 16px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.55);
+            color: #fff;
+            font-size: 0.78rem;
+            font-weight: 700;
+            line-height: 1;
+            font-family: Georgia, 'Times New Roman', serif;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            pointer-events: none;
+        }
+        .cue-loop-badge.visible {
+            display: inline-flex;
+        }
+        .cue-button-remote.has-custom-color:not(.playing):not(.paused):not(.cued) .cue-retrigger-icon:not(.icon-image) {
+            color: var(--cue-custom-fg, #e0e0e0);
+            background-color: color-mix(in srgb, var(--cue-custom-fg, #e0e0e0) 18%, transparent);
+        }
+        .cue-button-remote.has-custom-color:not(.playing):not(.paused):not(.cued) .cue-retrigger-icon.icon-image-native {
+            filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
+        }
+        .cue-button-remote.has-custom-color:not(.playing):not(.paused):not(.cued) .cue-loop-badge.visible {
+            color: var(--cue-custom-fg, #e0e0e0);
+            background-color: color-mix(in srgb, var(--cue-custom-fg, #e0e0e0) 18%, transparent);
+            border-color: color-mix(in srgb, var(--cue-custom-fg, #e0e0e0) 28%, transparent);
+        }
 
         /* Edit cue cards */
         .cue-edit-card {
             background: #2f2f2f;
             border: 2px solid #666;
             border-radius: 8px;
-            padding: 10px;
+            padding: 38px 10px 8px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
             cursor: default;
             box-sizing: border-box;
             transition: box-shadow 0.15s, transform 0.15s;
             touch-action: manipulation;
             min-width: 0;
+            width: 100%;
+            aspect-ratio: 1 / 1;
             overflow: hidden;
+            position: relative;
         }
         .cue-edit-card:hover {
             box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.5);
@@ -658,23 +746,31 @@
             box-shadow: 0 0 0 3px #d97706;
         }
         .cue-edit-top {
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            left: auto;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 8px;
+            justify-content: flex-end;
+            gap: 6px;
+            padding: 0;
+            z-index: 6;
+            flex-shrink: 0;
         }
         .cue-edit-drag {
             color: rgba(255,255,255,0.75);
-            font-size: 1em;
+            font-size: 0.9em;
             user-select: none;
             -webkit-user-select: none;
             cursor: grab;
             touch-action: none;
-            padding: 8px 10px;
-            min-width: 44px;
-            min-height: 44px;
+            padding: 4px 6px;
+            min-width: 32px;
+            min-height: 32px;
             border-radius: 6px;
-            background: rgba(0,0,0,0.25);
+            background: rgba(0,0,0,0.35);
+            border: 1px solid rgba(255,255,255,0.25);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -693,9 +789,9 @@
             border: 1px solid rgba(255,255,255,0.35);
             color: #e0e0e0;
             border-radius: 6px;
-            width: 44px;
-            height: 44px;
-            font-size: 1.15em;
+            width: 30px;
+            height: 30px;
+            font-size: 0.9em;
             line-height: 1;
             cursor: pointer;
             touch-action: manipulation;
@@ -708,20 +804,65 @@
             background: rgba(217, 119, 6, 0.5);
         }
         .cue-edit-reorder-row {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            margin-top: auto;
+        }
+        .cue-edit-reorder-buttons {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 4px;
+        }
+        .cue-edit-actions-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            flex-shrink: 0;
+            margin-top: auto;
+        }
+        .cue-edit-loop-btn {
+            background: rgba(0, 0, 0, 0.55);
+            border: 2px dashed rgba(255, 255, 255, 0.4);
+            color: rgba(255, 255, 255, 0.42);
+            border-radius: 6px;
+            min-width: 32px;
+            min-height: 28px;
+            padding: 0 8px;
+            font-size: 0.92em;
+            font-weight: 700;
+            font-family: Georgia, 'Times New Roman', serif;
+            line-height: 1;
+            cursor: pointer;
+            touch-action: manipulation;
+            flex-shrink: 0;
+            opacity: 0.9;
+        }
+        .cue-edit-loop-btn:hover {
+            border-color: rgba(255, 255, 255, 0.65);
+            color: rgba(255, 255, 255, 0.72);
+        }
+        .cue-edit-loop-btn.active,
+        .cue-edit-loop-btn[aria-pressed="true"] {
+            background: #d97706;
+            border: 2px solid #fff;
+            color: #fff;
+            opacity: 1;
+            box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.55), 0 0 10px rgba(217, 119, 6, 0.35);
         }
         .cue-move-btn {
             background: rgba(0, 0, 0, 0.35);
             border: 1px solid rgba(255, 255, 255, 0.35);
             color: #e0e0e0;
             border-radius: 8px;
-            min-width: 52px;
-            min-height: 44px;
-            padding: 0 12px;
-            font-size: 1.2em;
+            min-width: 36px;
+            min-height: 32px;
+            padding: 0 8px;
+            font-size: 1em;
             line-height: 1;
             cursor: pointer;
             touch-action: manipulation;
@@ -734,10 +875,7 @@
             cursor: default;
         }
         .cue-edit-order-label {
-            font-size: 0.72em;
-            color: rgba(255, 255, 255, 0.65);
-            min-width: 4.5em;
-            text-align: center;
+            display: none;
         }
         .cue-reorder-ghost {
             position: fixed;
@@ -747,6 +885,9 @@
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
             transform: scale(1.03);
             border: 2px solid #d97706;
+            aspect-ratio: 1 / 1;
+            overflow: hidden;
+            box-sizing: border-box;
         }
         body.remote-reorder-active {
             overflow: hidden;
@@ -754,21 +895,26 @@
         body.remote-reorder-active #remoteMain {
             touch-action: none;
         }
-        .cue-edit-color-preview {
-            width: 28px;
-            height: 28px;
-            border-radius: 6px;
-            border: 2px solid rgba(255,255,255,0.35);
-            flex-shrink: 0;
-        }
         .cue-edit-color-swatches {
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 4px;
+            flex-shrink: 0;
+            padding-right: 34px;
+        }
+        .cue-edit-color-row {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 4px;
+            min-height: 15px;
+        }
+        .cue-edit-color-row-recent {
+            opacity: 0.95;
         }
         .cue-color-swatch {
-            width: 18px;
-            height: 18px;
+            width: 15px;
+            height: 15px;
             border-radius: 4px;
             border: 1px solid rgba(255,255,255,0.25);
             cursor: pointer;
@@ -777,6 +923,31 @@
         .cue-color-swatch.active {
             outline: 2px solid #fff;
             outline-offset: 1px;
+        }
+        .cue-color-custom-wrap {
+            position: relative;
+            flex-shrink: 0;
+        }
+        .cue-color-custom {
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+        }
+        .cue-color-custom:not(.active) {
+            background-image: linear-gradient(135deg, #ff006e 0%, #ffd60a 35%, #00f5ff 70%, #9d4edd 100%) !important;
+        }
+        .cue-color-swatch-empty {
+            background: rgba(255, 255, 255, 0.06);
+            border-style: dashed;
+            opacity: 0.45;
+            cursor: default;
+        }
+        .cue-color-input-hidden {
+            position: absolute;
+            width: 0;
+            height: 0;
+            opacity: 0;
+            pointer-events: none;
+            border: 0;
+            padding: 0;
         }
         .cue-edit-open-hint {
             font-size: 0.72em;
@@ -790,16 +961,19 @@
             border: 1px solid #555;
             color: #e0e0e0;
             border-radius: 4px;
-            padding: 6px 8px;
-            font-size: 0.95em;
+            padding: 5px 6px;
+            font-size: 0.82em;
+            flex: 1 1 auto;
+            min-height: 2em;
         }
         .cue-edit-volume-row {
             display: grid;
             grid-template-columns: 1fr auto;
             grid-template-rows: auto auto;
             align-items: center;
-            gap: 4px 8px;
-            font-size: 0.85em;
+            gap: 3px 8px;
+            font-size: 0.75em;
+            flex-shrink: 0;
             width: 100%;
             min-width: 0;
         }
@@ -836,9 +1010,7 @@
             margin-left: 6px;
         }
         .cue-edit-type {
-            font-size: 0.75em;
-            color: #888;
-            text-transform: uppercase;
+            display: none;
         }
         .remote-toast {
             position: fixed;
@@ -1011,7 +1183,8 @@
         .cue-edit-card.dragging { opacity: 0.55; }
         .remote-drag-gap-placeholder {
             width: 100%;
-            min-height: 150px;
+            aspect-ratio: 1 / 1;
+            min-height: 0;
             border: 2px dashed rgba(217, 119, 6, 0.8);
             border-radius: 8px;
             background: rgba(217, 119, 6, 0.16);
@@ -1020,6 +1193,60 @@
             align-self: start;
         }
         #cueGridRemote.drag-active { cursor: grabbing; }
+        .retrigger-help {
+            color: #aaa;
+            margin: 6px 0 8px;
+            line-height: 1.4;
+        }
+        .retrigger-legend {
+            margin-top: 8px;
+            font-size: 0.85em;
+            color: #bbb;
+        }
+        .retrigger-legend summary {
+            cursor: pointer;
+            color: #d97706;
+            user-select: none;
+        }
+        .retrigger-legend-body {
+            margin-top: 8px;
+        }
+        .retrigger-legend-intro {
+            color: #888;
+            margin: 0 0 8px;
+        }
+        .retrigger-legend-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .retrigger-legend-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .retrigger-legend-icon {
+            flex-shrink: 0;
+            width: 22px;
+            height: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 4px;
+            font-size: 0.85em;
+            color: #e0e0e0;
+        }
+        .retrigger-legend-icon.icon-image {
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-color: transparent;
+        }
+        .retrigger-legend-text strong {
+            color: #e0e0e0;
+        }
     </style>
 </head>
 <body>
@@ -1092,12 +1319,13 @@
         </div>
         <div class="form-group">
             <label for="cfgDefaultRetrigger">Default retrigger behavior</label>
-            <select id="cfgDefaultRetrigger">
-                <option value="restart">Restart</option>
-                <option value="pause_resume">Pause / Resume</option>
-                <option value="stop">Stop</option>
-                <option value="fade_out_and_stop">Fade out and stop</option>
-            </select>
+            <p class="retrigger-legend-intro">Applies when a cue button is pressed while already playing or paused. Every cue button shows its effective retrigger icon.</p>
+            <select id="cfgDefaultRetrigger"></select>
+            <p id="cfgDefaultRetriggerHelp" class="retrigger-help"></p>
+            <details class="retrigger-legend">
+                <summary>Retrigger behavior legend</summary>
+                <div id="cfgDefaultRetriggerLegend" class="retrigger-legend-body"></div>
+            </details>
         </div>
         <div class="form-group">
             <label for="cfgDefaultStopAll">Stop all behavior</label>
@@ -1165,16 +1393,13 @@
         </div>
         <div class="form-group">
             <label for="cuePropRetrigger">Retrigger behavior</label>
-            <select id="cuePropRetrigger">
-                <option value="restart">Restart</option>
-                <option value="fade_out_and_stop">Fade out and stop</option>
-                <option value="stop">Stop</option>
-                <option value="toggle_pause_play">Toggle pause/play</option>
-                <option value="do_nothing">Do nothing</option>
-                <option value="play_new_instance">Play new instance</option>
-                <option value="replay_current_item">Replay current item</option>
-                <option value="play_next_item">Play next item</option>
-            </select>
+            <p class="retrigger-legend-intro">Override the global default for this cue only, or leave on Use app default.</p>
+            <select id="cuePropRetrigger"></select>
+            <p id="cuePropRetriggerHelp" class="retrigger-help"></p>
+            <details class="retrigger-legend">
+                <summary>Retrigger behavior legend</summary>
+                <div id="cuePropRetriggerLegend" class="retrigger-legend-body"></div>
+            </details>
         </div>
 
         <div class="form-group hidden" id="cuePropPlaylistOpts">
@@ -1230,6 +1455,9 @@
         <button type="button" id="cuePropDeleteBtn" class="btn-danger">Delete cue</button>
     </div>
 
+    <script src="retriggerCatalog.js"></script>
+    <script src="remoteBadgeUtils.js"></script>
+    <script src="remoteEditCardColors.js"></script>
     <script>
         // Ensure this path is correct relative to where remote.html is served from
         // If main.js serves httpServer.js from acCompaniment/src/main, and remote.html is in acCompaniment/src/renderer/remote_control
@@ -1310,6 +1538,58 @@
                 return;
             }
             ws.send(JSON.stringify({ action, ...payload }));
+        }
+
+        function refreshRemoteCueIndicators(cue) {
+            if (!cue?.id || !window.RemoteBadgeUtils) return;
+            const card = cueGridRemote.querySelector(`.cue-edit-card[data-cue-id="${cue.id}"]`);
+            const button = cueGridRemote.querySelector(`.cue-button-remote[data-cue-id="${cue.id}"]`);
+            if (card) {
+                RemoteBadgeUtils.updateCueIndicatorStrip(card, cue, appConfigRemote);
+                updateEditCardLoopButton(card.querySelector('.cue-edit-loop-btn'), cue.loop);
+            }
+            if (button) {
+                RemoteBadgeUtils.updateCueIndicatorStrip(button, cue, appConfigRemote);
+            }
+        }
+
+        function refreshAllRemoteEditCardColors() {
+            if (!window.RemoteEditCardColors) return;
+            Object.values(currentCues || {}).forEach((cue) => {
+                const card = cueGridRemote.querySelector(`.cue-edit-card[data-cue-id="${cue.id}"]`);
+                const container = card?.querySelector('.cue-edit-color-swatches');
+                if (container) {
+                    buildCardColorSwatches(container, cue.id, cue.buttonColor);
+                }
+            });
+        }
+
+        const LOOP_BADGE_GLYPH = '∞';
+
+        function updateEditCardLoopButton(button, loopEnabled) {
+            if (!button) return;
+            const enabled = !!loopEnabled;
+            button.classList.toggle('active', enabled);
+            button.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+            button.title = enabled ? 'Loop enabled — click to disable' : 'Loop disabled — click to enable';
+        }
+
+        function bindEditCardLoopButton(button, cueId) {
+            if (!button) return;
+            const cue = currentCues[cueId];
+            updateEditCardLoopButton(button, cue?.loop);
+            button.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const nextLoop = !currentCues[cueId]?.loop;
+                currentCues[cueId] = { ...currentCues[cueId], loop: nextLoop };
+                updateEditCardLoopButton(button, nextLoop);
+                debouncedSaveCuePatch(cueId, { loop: nextLoop });
+                refreshRemoteCueIndicators(currentCues[cueId]);
+            });
+        }
+
+        function refreshAllRemoteCueIndicators() {
+            Object.values(currentCues || {}).forEach((cue) => refreshRemoteCueIndicators(cue));
         }
 
         const debouncedSaveCuePatch = debounce(function(cueId, patch) {
@@ -1480,7 +1760,14 @@
             document.getElementById('cuePropFadeIn').value = detail.fadeInTime || 0;
             document.getElementById('cuePropFadeOut').value = detail.fadeOutTime || 0;
             document.getElementById('cuePropLoop').checked = !!detail.loop;
-            document.getElementById('cuePropRetrigger').value = detail.retriggerBehavior || 'restart';
+            document.getElementById('cuePropRetrigger').value = (detail.retriggerBehavior != null && detail.retriggerBehavior !== '')
+                ? detail.retriggerBehavior
+                : 'default';
+            window.RetriggerCatalog.updateRetriggerHelpText(
+                document.getElementById('cuePropRetrigger'),
+                document.getElementById('cuePropRetriggerHelp'),
+                { includeDefault: true }
+            );
             document.getElementById('cuePropTrimStart').value = detail.trimStartTime || 0;
             document.getElementById('cuePropTrimEnd').value = detail.trimEndTime || 0;
             document.getElementById('cuePropDuckingTrigger').checked = !!detail.isDuckingTrigger;
@@ -1532,8 +1819,6 @@
             card.style.backgroundColor = hex;
             card.style.color = primary;
             card.style.borderColor = hex === DEFAULT_CUE_BUTTON_COLOR ? '#666' : hex;
-            const preview = card.querySelector('.cue-edit-color-preview');
-            if (preview) preview.style.backgroundColor = hex;
         }
 
         function refreshEditCardColor(cueId, color) {
@@ -1541,29 +1826,20 @@
             if (card && currentCues[cueId]) {
                 currentCues[cueId].buttonColor = color || null;
                 applyEditCardAppearance(card, currentCues[cueId]);
-                const swatches = card.querySelectorAll('.cue-color-swatch');
-                const norm = normalizeHexColor(color);
-                swatches.forEach(s => {
-                    s.classList.toggle('active', normalizeHexColor(s.title) === norm);
-                });
+                RemoteEditCardColors.syncEditCardColorSwatches(
+                    card.querySelector('.cue-edit-color-swatches'),
+                    color
+                );
             }
         }
 
         function buildCardColorSwatches(container, cueId, currentColor) {
-            container.innerHTML = '';
-            const current = normalizeHexColor(currentColor);
-            PRESET_BUTTON_COLORS.forEach(color => {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'cue-color-swatch' + (current === color ? ' active' : '');
-                btn.style.backgroundColor = color;
-                btn.title = color;
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
+            RemoteEditCardColors.buildEditCardColorSwatches(container, currentColor, {
+                onSelectColor: (color) => {
                     debouncedSaveCuePatch(cueId, { buttonColor: color });
                     refreshEditCardColor(cueId, color);
-                });
-                container.appendChild(btn);
+                },
+                getRecentColors: () => appConfigRemote.recentButtonColors || [],
             });
         }
 
@@ -1599,7 +1875,15 @@
             bind('cuePropFadeIn', 'fadeInTime', v => parseInt(v, 10) || 0);
             bind('cuePropFadeOut', 'fadeOutTime', v => parseInt(v, 10) || 0);
             bind('cuePropLoop', 'loop');
-            bind('cuePropRetrigger', 'retriggerBehavior');
+            document.getElementById('cuePropRetrigger')?.addEventListener('change', (e) => {
+                const val = e.target.value === 'default' ? null : e.target.value;
+                window.RetriggerCatalog.updateRetriggerHelpText(
+                    e.target,
+                    document.getElementById('cuePropRetriggerHelp'),
+                    { includeDefault: true }
+                );
+                saveCuePropPatch({ retriggerBehavior: val });
+            });
             bind('cuePropShuffle', 'shuffle');
             bind('cuePropRepeatOne', 'repeatOne');
             bind('cuePropPlayMode', 'playlistPlayMode');
@@ -1655,6 +1939,10 @@
             setVal('cfgDefaultFadeOut', c.defaultFadeOutTime ?? 0);
             setChk('cfgDefaultLoop', c.defaultLoopSingleCue);
             setVal('cfgDefaultRetrigger', c.defaultRetriggerBehavior || 'restart');
+            window.RetriggerCatalog.updateRetriggerHelpText(
+                document.getElementById('cfgDefaultRetrigger'),
+                document.getElementById('cfgDefaultRetriggerHelp')
+            );
             setVal('cfgDefaultStopAll', c.defaultStopAllBehavior || 'stop');
             setVal('cfgDefaultStopAllFade', c.defaultStopAllFadeOutTime ?? 1500);
             setVal('cfgCrossfadeTime', c.crossfadeTime ?? 2000);
@@ -1677,6 +1965,15 @@
             bind('cfgDefaultFadeOut', 'defaultFadeOutTime', v => parseInt(v, 10) || 0);
             bind('cfgDefaultLoop', 'defaultLoopSingleCue');
             bind('cfgDefaultRetrigger', 'defaultRetriggerBehavior');
+            const cfgRetriggerSelect = document.getElementById('cfgDefaultRetrigger');
+            if (cfgRetriggerSelect) {
+                cfgRetriggerSelect.addEventListener('change', () => {
+                    window.RetriggerCatalog.updateRetriggerHelpText(
+                        cfgRetriggerSelect,
+                        document.getElementById('cfgDefaultRetriggerHelp')
+                    );
+                });
+            }
             bind('cfgDefaultStopAll', 'defaultStopAllBehavior');
             bind('cfgDefaultStopAllFade', 'defaultStopAllFadeOutTime', v => parseInt(v, 10) || 0);
             bind('cfgCrossfadeTime', 'crossfadeTime', v => parseInt(v, 10) || 2000);
@@ -1696,6 +1993,24 @@
         if (remoteSettingsClose) remoteSettingsClose.addEventListener('click', closeSettingsPanel);
         if (remoteCuePropertiesClose) remoteCuePropertiesClose.addEventListener('click', closeCuePropertiesPanel);
         if (remoteSettingsBackdrop) remoteSettingsBackdrop.addEventListener('click', closeAllPanels);
+        function setupRemoteRetriggerUi() {
+            const catalog = window.RetriggerCatalog;
+            if (!catalog) return;
+            const cfgSelect = document.getElementById('cfgDefaultRetrigger');
+            const cfgHelp = document.getElementById('cfgDefaultRetriggerHelp');
+            const cfgLegend = document.getElementById('cfgDefaultRetriggerLegend');
+            catalog.populateRetriggerSelect(cfgSelect, { includeDefault: false });
+            catalog.renderRetriggerLegend(cfgLegend);
+            catalog.updateRetriggerHelpText(cfgSelect, cfgHelp);
+
+            const cueSelect = document.getElementById('cuePropRetrigger');
+            const cueHelp = document.getElementById('cuePropRetriggerHelp');
+            const cueLegend = document.getElementById('cuePropRetriggerLegend');
+            catalog.populateRetriggerSelect(cueSelect, { includeDefault: true });
+            catalog.renderRetriggerLegend(cueLegend);
+        }
+
+        setupRemoteRetriggerUi();
         bindSettingsFormEvents();
         bindCuePropertiesFormEvents();
         setRemoteMode(remoteMode);
@@ -1758,6 +2073,10 @@
                         if (!remoteSettingsPanel?.classList.contains('hidden')) {
                             populateSettingsForm();
                         }
+                        refreshAllRemoteCueIndicators();
+                        if (remoteMode === 'edit') {
+                            refreshAllRemoteEditCardColors();
+                        }
                     }
                 } else if (message.type === 'cue_detail') {
                     if (message.payload && message.payload.id === activeCuePropertiesId) {
@@ -1781,6 +2100,8 @@
                         }
                         if (remoteMode === 'playback') {
                             updateCueButtonRemote(mergedCue);
+                        } else {
+                            refreshRemoteCueIndicators(mergedCue);
                         }
                     } else {
                         currentCues[message.cue.id] = message.cue;
@@ -3260,6 +3581,7 @@
                 updateButtonTextContent(button, cue);
                 updateButtonStatusClass(button, cue.status, cue);
                 ensureWaveformForButton(button, cue);
+                RemoteBadgeUtils.updateCueIndicatorStrip(button, cue, appConfigRemote);
                 button.addEventListener('click', () => debouncedTriggerCue(cue.id));
 
                 const meterContainer = document.createElement('div');
@@ -3323,9 +3645,7 @@
                 const volPct = Math.round((cue.volume !== undefined ? cue.volume : 1) * 100);
                 card.innerHTML = `
                     <div class="cue-edit-top">
-                        <div class="cue-edit-drag" title="Long-press and drag to reorder">⋮⋮</div>
                         <div class="cue-edit-top-right">
-                            <div class="cue-edit-color-preview" title="Button color"></div>
                             <button type="button" class="cue-edit-settings-btn" title="Cue properties" aria-label="Cue properties">⚙</button>
                         </div>
                     </div>
@@ -3338,12 +3658,16 @@
                     </div>
                     <div class="cue-edit-type">${cue.type === 'playlist' ? 'Playlist' : 'Single file'}</div>
                     <div class="cue-edit-reorder-row">
-                        <button type="button" class="cue-move-btn cue-move-earlier" title="Move earlier in list" aria-label="Move cue earlier">◀</button>
-                        <span class="cue-edit-order-label">Reorder</span>
-                        <button type="button" class="cue-move-btn cue-move-later" title="Move later in list" aria-label="Move cue later">▶</button>
+                        <div class="cue-edit-drag" title="Long-press and drag to reorder">⋮⋮</div>
+                        <div class="cue-edit-reorder-buttons">
+                            <button type="button" class="cue-move-btn cue-move-earlier" title="Move earlier in list" aria-label="Move cue earlier">◀</button>
+                            <button type="button" class="cue-move-btn cue-move-later" title="Move later in list" aria-label="Move cue later">▶</button>
+                        </div>
+                        <button type="button" class="cue-edit-loop-btn" aria-pressed="${cue.loop ? 'true' : 'false'}" aria-label="Toggle loop" title="Loop disabled — click to enable">${LOOP_BADGE_GLYPH}</button>
                     </div>
                 `;
                 applyEditCardAppearance(card, cue);
+                RemoteBadgeUtils.updateCueIndicatorStrip(card, cue, appConfigRemote);
                 const swatchContainer = card.querySelector('.cue-edit-color-swatches');
                 buildCardColorSwatches(swatchContainer, cue.id, cue.buttonColor);
                 const nameInput = card.querySelector('.cue-edit-name');
@@ -3374,6 +3698,7 @@
                         openCuePropertiesPanel(cue.id);
                     });
                 }
+                bindEditCardLoopButton(card.querySelector('.cue-edit-loop-btn'), cue.id);
                 const dragHandle = card.querySelector('.cue-edit-drag');
                 bindEditCardDrag(card, dragHandle);
                 bindEditCardTouchReorder(card, dragHandle);
@@ -3490,7 +3815,9 @@
             ghost.classList.add('cue-reorder-ghost');
             ghost.classList.remove('dragging', 'cue-edit-selected');
             const rect = sourceCard.getBoundingClientRect();
-            ghost.style.width = `${rect.width}px`;
+            const size = rect.width;
+            ghost.style.width = `${size}px`;
+            ghost.style.height = `${size}px`;
             ghost.style.left = `${rect.left}px`;
             ghost.style.top = `${rect.top}px`;
             document.body.appendChild(ghost);
@@ -3500,8 +3827,9 @@
 
         function moveTouchReorderGhost(clientX, clientY, sourceRect) {
             if (!touchReorderGhostEl) return;
-            touchReorderGhostEl.style.left = `${clientX - sourceRect.width / 2}px`;
-            touchReorderGhostEl.style.top = `${clientY - sourceRect.height / 2}px`;
+            const size = sourceRect.width;
+            touchReorderGhostEl.style.left = `${clientX - size / 2}px`;
+            touchReorderGhostEl.style.top = `${clientY - size / 2}px`;
         }
 
         function findSectionBodyAtPoint(clientX, clientY) {
@@ -3751,6 +4079,11 @@
                 updateButtonTextContent(button, cue);
                 updateButtonStatusClass(button, cue.status, cue);
                 ensureWaveformForButton(button, cue);
+                RemoteBadgeUtils.updateCueIndicatorStrip(button, cue, appConfigRemote);
+            }
+            const editCard = cueGridRemote.querySelector(`.cue-edit-card[data-cue-id="${cue.id}"]`);
+            if (editCard) {
+                RemoteBadgeUtils.updateCueIndicatorStrip(editCard, cue, appConfigRemote);
             }
             updateRemoteCueMeter(cue);
             handleRemoteWaveformUpdate(cue);

@@ -42,6 +42,10 @@ const {
     resolveEffectiveShowButtonWaveform
 } = require('./showButtonWaveformUtils');
 const {
+    normalizeRetriggerBehaviorOverride,
+    resolveEffectiveRetriggerBehavior
+} = require('./retriggerBehaviorUtils');
+const {
     mergeCuePatch,
     sanitizeConfigPatch,
     getRemoteConfigSnapshot,
@@ -376,7 +380,8 @@ function processCueForRemote(cue, overrides = {}) {
         fadeInTime: cue.fadeInTime || 0,
         fadeOutTime: cue.fadeOutTime || 0,
         loop: !!cue.loop,
-        retriggerBehavior: cue.retriggerBehavior || 'restart'
+        retriggerBehavior: normalizeRetriggerBehaviorOverride(cue.retriggerBehavior),
+        effectiveRetriggerBehavior: resolveEffectiveRetriggerBehavior(cue, appConfigRef || {}),
     };
 }
 

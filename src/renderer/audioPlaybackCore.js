@@ -2,6 +2,8 @@
 // Core playback functions for audio playback management
 
 import { log } from './audioPlaybackLogger.js';
+import { resolveEffectiveRetriggerBehavior } from './retriggerBehaviorUtils.js';
+import { resolveEffectiveFadeOutTime } from './fadeTimeUtils.js';
 import { _applyDucking, _revertDucking } from './audioPlaybackDucking.js';
 import { _generateShuffleOrder } from './audioPlaybackUtils.js';
 import { _addToPlayOrder, _removeFromPlayOrder, _updateCurrentCueForCompanion, _cleanupSoundInstance } from './audioPlaybackStateManagement.js';
@@ -528,20 +530,13 @@ export function stop(cueId, useFade = true, fromCompanion = false, isRetriggerSt
     if (playingState && playingState.sound) {
         const cue = getGlobalCueByIdRef(cueId); // Get full cue data for fade times etc.
         const appConfig = getAppConfigFuncRef ? getAppConfigFuncRef() : {};
+        const fadeOutTime = resolveEffectiveFadeOutTime(cue, appConfig, { stopReason });
+        const effectiveFadeOutTime = useFade ? fadeOutTime : 0;
         
-        let fadeOutTime;
-        if (stopReason === 'stop_all') {
-            // For stop all, use the global stop all fade out time, not individual cue fade out times
-            fadeOutTime = appConfig.defaultStopAllFadeOutTime !== undefined ? appConfig.defaultStopAllFadeOutTime : 1500;
-            log.info(`AudioPlaybackManager: Using stop all fade out time: ${fadeOutTime}ms for cue ${cueId}`);
-        } else {
-            // For individual stops, use the cue's fade out time or default
-            const defaultFadeOutTimeFromConfig = appConfig.defaultFadeOutTime !== undefined ? appConfig.defaultFadeOutTime : 0;
-            fadeOutTime = (cue && cue.fadeOutTime !== undefined) ? cue.fadeOutTime : defaultFadeOutTimeFromConfig;
-        }
-        
-        playingState.acIsStoppingWithFade = useFade && fadeOutTime > 0;
-        playingState.acStopSource = isRetriggerStop ? (cue ? cue.retriggerAction : 'unknown_retrigger') : (fromCompanion ? 'companion_stop' : 'manual_stop');
+        playingState.acIsStoppingWithFade = useFade && effectiveFadeOutTime > 0;
+        playingState.acStopSource = isRetriggerStop
+            ? resolveEffectiveRetriggerBehavior(cue, appConfig)
+            : (fromCompanion ? 'companion_stop' : 'manual_stop');
         playingState.explicitStopReason = stopReason; // Store the explicit stop reason
 
         if (playingState.sound) { // Ensure sound exists before attaching property
@@ -551,7 +546,7 @@ export function stop(cueId, useFade = true, fromCompanion = false, isRetriggerSt
         if (playingState.acIsStoppingWithFade) {
             playingState.isFadingOut = true;
             playingState.isFadingIn = false; 
-            playingState.fadeTotalDurationMs = fadeOutTime;
+            playingState.fadeTotalDurationMs = effectiveFadeOutTime;
             playingState.fadeStartTime = Date.now();
         } else {
             playingState.isFadingIn = false;
@@ -562,8 +557,8 @@ export function stop(cueId, useFade = true, fromCompanion = false, isRetriggerSt
 
         if (playingState.acIsStoppingWithFade) {
             const currentVolume = playingState.sound.volume();
-            log.debug(`Fading out cue ${cueId} over ${fadeOutTime}ms from volume ${currentVolume}`);
-            playingState.sound.fade(currentVolume, 0, fadeOutTime); // Howler's fade handles its own soundId
+            log.debug(`Fading out cue ${cueId} over ${effectiveFadeOutTime}ms from volume ${currentVolume}`);
+            playingState.sound.fade(currentVolume, 0, effectiveFadeOutTime);
         } else {
             log.debug(`Stopping cue ${cueId} immediately`);
             // Note: We don't call .off() here because we want the onstop handler to fire for cleanup
