@@ -7,6 +7,11 @@ import { init as initEmitter, sendPlaybackTimeUpdate } from './audioPlaybackIPCE
 import { createPlaybackInstance } from './playbackInstanceHandler.js';
 import { log } from './audioPlaybackLogger.js';
 import { resolveEffectiveRetriggerBehavior } from './retriggerBehaviorUtils.js';
+import {
+    setMonitorOutputDeviceId,
+    setRouteShowPlaybackToMonitor,
+    getMonitorOutputDeviceId
+} from './audioOutputRouting.js';
 
 // Local function to get cue by ID using cueStore directly
 function getGlobalCueById(cueId) {
@@ -33,6 +38,7 @@ let audioControllerInitialized = false;
 
 // Store the current audio output device ID
 let currentAudioOutputDeviceId = 'default';
+let currentMonitorOutputDeviceId = 'default';
 
 // Call this function to initialize the module with dependencies
 async function init(cs, ipcRendererBindingsInstance, cgAPI, sbAPI) {
@@ -120,6 +126,14 @@ function _updateInternalAppConfig(newConfig) {
     if (newConfig.audioOutputDeviceId !== undefined) {
         currentAudioOutputDeviceId = newConfig.audioOutputDeviceId;
         log.info(`AudioController: Updated current audio output device ID to: ${currentAudioOutputDeviceId}`);
+    }
+    if (newConfig.audioMonitorOutputDeviceId !== undefined) {
+        currentMonitorOutputDeviceId = newConfig.audioMonitorOutputDeviceId;
+        setMonitorOutputDeviceId(currentMonitorOutputDeviceId);
+        log.info(`AudioController: Updated monitor output device ID to: ${currentMonitorOutputDeviceId}`);
+    }
+    if (newConfig.routeShowPlaybackToMonitor !== undefined) {
+        setRouteShowPlaybackToMonitor(newConfig.routeShowPlaybackToMonitor === true);
     }
 
     appConfigInitialized = true;
@@ -546,6 +560,13 @@ if (success) {
 }
 }
 
+async function setMonitorOutputDevice(deviceId) {
+    log.info(`AudioController: Setting monitor/preview output device to: ${deviceId}`);
+    currentMonitorOutputDeviceId = deviceId || 'default';
+    setMonitorOutputDeviceId(currentMonitorOutputDeviceId);
+    return { success: true, message: `Monitor output set to ${deviceId}` };
+}
+
 // --- Re-export functions from audioPlaybackManager for other UI modules to use ---
 // These will now use playbackManagerModule and need to handle it being potentially null
 const play = (cue, isResume = false) => playbackManagerModule?.play(cue, isResume);
@@ -823,7 +844,9 @@ export default {
     isCued,
     updateAppConfig: _updateInternalAppConfig, // Expose the internal updater
     setAudioOutputDevice,
+    setMonitorOutputDevice,
     getCurrentAudioOutputDeviceId,
+    getCurrentMonitorOutputDeviceId: () => currentMonitorOutputDeviceId || getMonitorOutputDeviceId(),
     playCueByIdFromMain, // Make sure this is exported if called from IPC
     playlistNavigateNext,
     playlistNavigatePrevious,

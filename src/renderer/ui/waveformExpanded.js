@@ -8,10 +8,12 @@
 import { getTrimDisplayTimes, trimTimesForPersist } from './waveformTrimTimeUtils.js';
 import { styleRegions, syncTrimBracketMarkers } from './waveformRegions.js';
 import * as WaveformZoom from './waveformZoom.js';
+import { bindPreviewWaveSurferOnReady } from '../audioOutputRouting.js';
 
 // Expanded waveform state
 let expandedWaveformCanvas = null;
 let expandedWaveformInstance = null; // Expanded waveform WaveSurfer instance
+let expandedPreviewOutputCleanup = null;
 let expandedAnimationId = null;
 let currentExpandedCue = null;
 
@@ -118,6 +120,10 @@ function createExpandedWaveform(setupZoomCallback, setupRegionsCallback) {
     // Clean up any existing expanded waveform first
     if (expandedWaveformInstance) {
         try {
+            if (expandedPreviewOutputCleanup) {
+                expandedPreviewOutputCleanup();
+                expandedPreviewOutputCleanup = null;
+            }
             expandedWaveformInstance.destroy();
         } catch (error) {
             console.warn('WaveformExpanded: Error destroying previous expanded waveform:', error);
@@ -186,6 +192,8 @@ function createExpandedWaveformDelayed(waveformHeight, setupZoomCallback, setupR
                 WaveSurfer.Regions.create()
             ]
         });
+        
+        expandedPreviewOutputCleanup = bindPreviewWaveSurferOnReady(expandedWaveformInstance);
         
         console.log('WaveformExpanded: Expanded WaveSurfer instance created successfully:', !!expandedWaveformInstance);
         
@@ -1449,6 +1457,10 @@ function cleanupExpandedWaveform() {
     // Destroy expanded waveform instance
     if (expandedWaveformInstance) {
         try {
+            if (expandedPreviewOutputCleanup) {
+                expandedPreviewOutputCleanup();
+                expandedPreviewOutputCleanup = null;
+            }
             expandedWaveformInstance.destroy();
         } catch (error) {
             console.warn('WaveformExpanded: Error destroying expanded waveform:', error);

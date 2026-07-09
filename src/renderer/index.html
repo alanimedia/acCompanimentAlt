@@ -30,8 +30,21 @@
                 <div class="sidebar-content">
                     <h2>App Configuration</h2>
                     <div class="form-group">
-                        <label for="configAudioOutputDevice">Audio Output Device:</label>
+                        <label for="configAudioOutputDevice">Show / Main Output:</label>
                         <select id="configAudioOutputDevice" class="styled-select"></select>
+                        <p class="small-text">Cue triggers and live playback are sent here (FOH / main interface).</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="configAudioMonitorOutputDevice">Monitor / Preview Output:</label>
+                        <select id="configAudioMonitorOutputDevice" class="styled-select"></select>
+                        <p class="small-text">Waveform preview in the properties sidebar and expanded editor uses this output.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="configRouteShowPlaybackToMonitor">
+                            <input type="checkbox" id="configRouteShowPlaybackToMonitor">
+                            Also route live cue playback to monitor output
+                        </label>
+                        <p class="small-text">When enabled, triggered cues play on both outputs (useful for headphones or a second interface).</p>
                     </div>
 
                     <h3>Default Cue Properties</h3>

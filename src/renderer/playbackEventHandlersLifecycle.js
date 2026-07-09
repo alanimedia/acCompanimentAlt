@@ -4,6 +4,7 @@
 
 import { handleDuckingTriggerStop } from './playbackDucking.js';
 import { clearTimeUpdateIntervals, clearTrimEndTimer } from './playbackTimeManager.js';
+import { syncMonitorStop } from './playbackMonitorOutput.js';
 
 /**
  * Create onend event handler
@@ -22,6 +23,9 @@ export function createOnendHandler(cueId, sound, playingState, filePath, current
         
         // Determine if this is a looping single cue - if so, don't cleanup, let Howler handle the loop
         const isLoopingSingleCue = !playingState.isPlaylist && mainCue.loop && !mainCue.trimStartTime && !mainCue.trimEndTime;
+        if (!isLoopingSingleCue) {
+            syncMonitorStop(playingState);
+        }
         
         // CRITICAL FIX: Clear time update intervals IMMEDIATELY to prevent continued "playing" status updates
         // This must happen before any other processing to stop the race condition
@@ -133,6 +137,7 @@ export function createOnendHandler(cueId, sound, playingState, filePath, current
 export function createOnstopHandler(cueId, sound, playingState, filePath, currentItemNameForEvents, mainCue, audioControllerContext) {
     return (soundId) => {
         console.log(`[TIME_UPDATE_DEBUG ${cueId}] onstop: Fired for ${filePath}. Sound ID: ${soundId}`);
+        syncMonitorStop(playingState);
         
         // Remove from all sound instances tracking
         if (sound._acSoundId && audioControllerContext.allSoundInstances && audioControllerContext.allSoundInstances[sound._acSoundId]) {

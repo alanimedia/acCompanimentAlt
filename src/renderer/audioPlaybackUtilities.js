@@ -5,6 +5,7 @@ import { log } from './audioPlaybackLogger.js';
 import { cleanupAllResources } from './audioPlaybackUtils.js';
 import { _cuePlaylistAtPosition } from './audioPlaybackPlaylist.js';
 import { scheduleTrimEndEnforcement, createTimeUpdateInterval } from './playbackTimeManager.js';
+import { syncMonitorSeek, syncMonitorVolume } from './playbackMonitorOutput.js';
 
 const pendingSeekTimers = new Map();
 
@@ -82,6 +83,7 @@ export function setCueVolumeInCue(cueId, volume, context, options = {}) {
     }
 
     playingState.sound.volume(targetVolume);
+    syncMonitorVolume(playingState, targetVolume);
 
     const sound = playingState.sound;
     let status = 'playing';
@@ -181,6 +183,7 @@ function applySeekToSound(cueId, playingState, sound, clampedPosition, context, 
 
     playingState.lastSeekPosition = clampedPosition;
     sound.seek(clampedPosition);
+    syncMonitorSeek(playingState, clampedPosition);
 
     if (wasPlayingBefore && cue) {
         rescheduleTrimAfterSeek(cueId, sound, playingState, cue, context);

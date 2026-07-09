@@ -8,6 +8,7 @@ import * as WaveformTrimControls from './waveformTrimControls.js';
 import * as WaveformBottomPanel from './waveformBottomPanel.js';
 import * as WaveformExpanded from './waveformExpanded.js';
 import { getTrimDisplayTimes } from './waveformTrimTimeUtils.js';
+import { bindPreviewWaveSurferOnReady } from '../audioOutputRouting.js';
 
 // Dependencies from other modules (will be set in init)
 let ipcRendererBindingsModule;
@@ -326,6 +327,8 @@ function moveWaveformToExpandedView(audioFilePath, currentTime, wasPlaying, trim
         ]
     });
     
+    bindPreviewWaveSurferOnReady(expandedInstance);
+    
     // Store the instance as the main instance
     WaveformCore.updateDependencies({ wavesurferInstance: expandedInstance });
     WaveformRegions.setRegionsInstance(expandedInstance.plugins[0]);
@@ -614,6 +617,8 @@ function moveWaveformToSmallView(audioFilePath, currentTime, wasPlaying, trimTim
             WaveSurfer.Regions.create()
         ]
     });
+    
+    bindPreviewWaveSurferOnReady(smallInstance);
     
     // Store the instance as the main instance
     WaveformCore.updateDependencies({ wavesurferInstance: smallInstance });

@@ -6,9 +6,11 @@
  */
 
 import { getTrimDisplayTimes, isWaveformRegionTarget } from './waveformTrimTimeUtils.js';
+import { bindPreviewWaveSurferOnReady } from '../audioOutputRouting.js';
 
 // Module-level variables for WaveSurfer instance and related state
 let wavesurferInstance = null;
+let previewOutputCleanup = null;
 let waveformIsStoppedAtTrimStart = false;
 let currentAudioFilePath = null; // Store the current audio file path
 let playStartPosition = 0; // Track where play was started for stop behavior
@@ -437,6 +439,8 @@ function _initializeWaveformDebounced(cue, setupEventsCallback, setRegionsCallba
             ]
         });
         
+        previewOutputCleanup = bindPreviewWaveSurferOnReady(wavesurferInstance);
+        
         // Get the regions plugin instance
         const regionsPlugin = wavesurferInstance.plugins[0];
         if (setRegionsCallback) {
@@ -769,6 +773,10 @@ function handlePlaybackEndReached(getTrimTimesCallback) {
  */
 function destroyWaveform() {
     console.log('WaveformCore: destroyWaveform called');
+    if (previewOutputCleanup) {
+        previewOutputCleanup();
+        previewOutputCleanup = null;
+    }
     
     if (wavesurferInstance) {
         try {

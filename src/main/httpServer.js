@@ -12,7 +12,7 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const recentlyTriggeredCuesByRemote = new Map(); // cueId -> timestamp
-const REMOTE_TRIGGER_DEBOUNCE_MS = 400; // Ignore duplicate remote triggers for the same cue within this time
+const REMOTE_TRIGGER_DEBOUNCE_MS = 150; // Ignore duplicate remote triggers for the same cue within this time
 let ipcSentForThisRemoteTrigger = {}; // cueId -> boolean : Blocks IPC send if true for this specific trigger event
 
 // Cleanup function to prevent memory leaks in ipcSentForThisRemoteTrigger

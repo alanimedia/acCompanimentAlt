@@ -4,6 +4,12 @@
 
 import { applyDuckingOnPlay } from './playbackDucking.js';
 import { createTimeUpdateInterval, scheduleTrimEndEnforcement, clearTimeUpdateIntervals } from './playbackTimeManager.js';
+import {
+    attachMonitorToPlayingState,
+    syncMonitorPlay,
+    syncMonitorPause,
+    syncMonitorStop
+} from './playbackMonitorOutput.js';
 
 /**
  * Create onload event handler
@@ -57,6 +63,10 @@ export function createOnloadHandler(cueId, sound, playingState, filePath, curren
                 }
             }
         }
+
+        const mainDeviceId = audioControllerContext.audioControllerRef?.getCurrentAudioOutputDeviceId?.() || 'default';
+        const monitorVolume = mainCue.volume !== undefined ? mainCue.volume : 1;
+        attachMonitorToPlayingState(playingState, filePath, monitorVolume, mainDeviceId);
 
         // Inform UI/CueStore about the discovered duration for persistence
         if (audioControllerContext.ipcBindings && typeof audioControllerContext.ipcBindings.send === 'function') {
@@ -192,6 +202,7 @@ export function createOnplayHandler(cueId, sound, playingState, filePath, curren
 
         playingState.sound = sound; // IMPORTANT: Update the sound reference in the shared playingState
         playingState.isPaused = false;
+        syncMonitorPlay(playingState, sound);
         
         // Sound instance already tracked during creation
         
@@ -292,6 +303,7 @@ export function createOnpauseHandler(cueId, sound, playingState, currentItemName
         clearTimeUpdateIntervals(cueId, playingState, audioControllerContext);
         
         playingState.isPaused = true;
+        syncMonitorPause(playingState);
         if (playingState.sound) { // Sound is this instance
             playingState.lastSeekPosition = sound.seek() || 0;
             console.log(`[TIME_UPDATE_DEBUG ${cueId}] onpause: lastSeekPosition set to ${playingState.lastSeekPosition}`);
