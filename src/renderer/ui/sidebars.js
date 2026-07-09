@@ -248,7 +248,9 @@ function openPropertiesSidebar(cue) {
     if(propertiesSidebar) propertiesSidebar.classList.remove('hidden');
 
     if (propRetriggerBehaviorSelect) {
-        propRetriggerBehaviorSelect.value = cue.retriggerBehavior !== undefined ? cue.retriggerBehavior : (currentAppConfig.defaultRetriggerBehavior || 'restart');
+        propRetriggerBehaviorSelect.value = (cue.retriggerBehavior != null && cue.retriggerBehavior !== '')
+            ? cue.retriggerBehavior
+            : 'default';
     }
     
     // Make sure event listeners are bound for dynamic elements like playlist items if not already done
@@ -384,7 +386,9 @@ async function handleSaveCueProperties() {
         fadeInTime: parseFloat(propFadeInTimeInput.value) || 0,
         fadeOutTime: parseFloat(propFadeOutTimeInput.value) || 0,
         loop: propLoopCheckbox.checked,
-        retriggerBehavior: propRetriggerBehaviorSelect.value,
+        retriggerBehavior: (propRetriggerBehaviorSelect && propRetriggerBehaviorSelect.value !== 'default')
+            ? propRetriggerBehaviorSelect.value
+            : null,
         volume: parseFloat(propVolumeSlider.value),
         shufflePlaylist: propShufflePlaylistCheckbox ? propShufflePlaylistCheckbox.checked : false,
         repeatOnePlaylistItem: propRepeatOnePlaylistItemCheckbox ? propRepeatOnePlaylistItemCheckbox.checked : false,

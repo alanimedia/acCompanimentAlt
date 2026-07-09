@@ -4,13 +4,19 @@
  */
 
 import { formatWaveformTime } from './waveformControls.js';
-import { 
-    normalizeTrimValues, 
-    validateCueName, 
-    validateVolume, 
-    validateDuckingLevel, 
-    validateFadeTime 
+import {
+    normalizeTrimValues,
+    validateCueName,
+    validateVolume,
+    validateDuckingLevel,
+    validateFadeTime
 } from './propertiesSidebarUtils.js';
+import {
+    retriggerOverrideToSelectValue,
+    retriggerSelectValueToOverride
+} from '../retriggerBehaviorUtils.js';
+import { updateRetriggerHelpText } from '../retriggerBehaviorCatalog.js';
+import { applyCueBadgeState } from './cueGrid.js';
 import {
     setButtonColorFromCue,
     getButtonColorFormState,
@@ -102,8 +108,8 @@ function collectFormData(activePropertiesCueId, domElements, stagedPlaylistItems
         volume: validateVolume(
             domElements.propVolumeSlider ? parseFloat(domElements.propVolumeSlider.value) : existingCue.volume
         ),
-        retriggerBehavior: domElements.propRetriggerBehaviorSelect 
-            ? domElements.propRetriggerBehaviorSelect.value 
+        retriggerBehavior: domElements.propRetriggerBehaviorSelect
+            ? retriggerSelectValueToOverride(domElements.propRetriggerBehaviorSelect.value)
             : existingCue.retriggerBehavior,
         shuffle: (domElements.propCueTypeSelect && domElements.propCueTypeSelect.value === 'playlist' && domElements.propShufflePlaylistCheckbox) 
             ? domElements.propShufflePlaylistCheckbox.checked 
@@ -168,6 +174,9 @@ async function saveCueProperties(activePropertiesCueId, domElements, stagedPlayl
             return false;
         } else {
             console.log('[PropertiesSidebar] Successfully saved cue:', activePropertiesCueId);
+            if (typeof applyCueBadgeState === 'function') {
+                applyCueBadgeState(activePropertiesCueId);
+            }
             return true;
         }
     } catch (error) {
@@ -271,8 +280,14 @@ function populateFormWithCueData(cue, domElements, setStagedPlaylistItems, rende
     if(domElements.propVolumeSlider) domElements.propVolumeSlider.value = volume;
     if(domElements.propVolumeValueDisplay) domElements.propVolumeValueDisplay.textContent = parseFloat(volume).toFixed(2);
     
-    // Set retrigger behavior with fallback
-    if(domElements.propRetriggerBehaviorSelect) domElements.propRetriggerBehaviorSelect.value = cue.retriggerBehavior !== undefined ? cue.retriggerBehavior : (appConfig.defaultRetriggerBehavior || 'restart');
+    if (domElements.propRetriggerBehaviorSelect) {
+        domElements.propRetriggerBehaviorSelect.value = retriggerOverrideToSelectValue(cue);
+        updateRetriggerHelpText(
+            domElements.propRetriggerBehaviorSelect,
+            document.getElementById('propRetriggerBehaviorHelp'),
+            { includeDefault: true }
+        );
+    }
 
     // Set ducking controls with validation
     if (domElements.propEnableDuckingCheckbox) domElements.propEnableDuckingCheckbox.checked = !!cue.enableDucking;

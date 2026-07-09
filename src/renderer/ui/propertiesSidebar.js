@@ -31,6 +31,11 @@ import {
     bindPropertiesSidebarEventListeners,
     updateActivePropertiesCueId
 } from './propertiesSidebarEvents.js';
+import {
+    populateRetriggerSelect,
+    updateRetriggerHelpText,
+    renderRetriggerLegend
+} from '../retriggerBehaviorCatalog.js';
 
 let cueStore;
 let audioController;
@@ -43,6 +48,18 @@ let debouncedSaveCueProperties;
 
 // --- Helper Functions (Specific to Properties or shared & simple enough to keep) ---
 
+function setupRetriggerPropertyUi() {
+    const select = getDOMElement('propRetriggerBehaviorSelect');
+    const help = document.getElementById('propRetriggerBehaviorHelp');
+    const legend = document.getElementById('propRetriggerLegend');
+    populateRetriggerSelect(select, { includeDefault: true });
+    renderRetriggerLegend(legend);
+    if (select) {
+        select.addEventListener('change', () => {
+            updateRetriggerHelpText(select, help, { includeDefault: true });
+        });
+    }
+}
 
 // --- Initialization ---
 function initPropertiesSidebar(csModule, acModule, ipcAPI, uiCoreInterfaceRef) {
@@ -53,6 +70,7 @@ function initPropertiesSidebar(csModule, acModule, ipcAPI, uiCoreInterfaceRef) {
 
     // Initialize DOM elements
     cachePropertiesSidebarDOMElements();
+    setupRetriggerPropertyUi();
     
     // Log cached elements to verify they are found
     console.log('[PropertiesSidebarInit] Cached DOM elements after cachePropertiesSidebarDOMElements:');

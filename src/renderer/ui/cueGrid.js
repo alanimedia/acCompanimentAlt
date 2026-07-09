@@ -1,6 +1,8 @@
 import { formatTime } from './utils.js';
 import { uiLog } from './uiLogger.js';
-import { getContrastTextColors, PRESET_BUTTON_COLORS, DEFAULT_CUE_BUTTON_COLOR, normalizeHexColor } from './buttonColorPresets.js';
+import { getContrastTextColors, DEFAULT_CUE_BUTTON_COLOR, normalizeHexColor } from './buttonColorPresets.js';
+import { buildEditCardColorSwatches, syncEditCardColorSwatches } from '../editCardColorSwatches.js';
+import { LOOP_BADGE_GLYPH } from '../cueIndicatorBadges.js';
 import {
     shouldShowButtonWaveform,
     ensureButtonWaveform,
@@ -20,6 +22,8 @@ import {
     insertWrappersAfter,
     appendWrappersToSection
 } from './cueGridSections.js';
+import { resolveEffectiveRetriggerBehavior } from '../retriggerBehaviorUtils.js';
+import { ensureCueIndicatorStrip, updateCueIndicatorStrip } from '../cueIndicatorBadges.js';
 import {
     beginDragGap,
     endDragGap,
@@ -45,33 +49,6 @@ let cueBadgeElements = {}; // Stores references to icon elements per cue
 
 const METER_MIN_HEIGHT_PERCENT = 4; // Prevent meter from collapsing completely when active
 const METER_SMOOTHING = 0.4; // Smoothing factor for visual stability
-const RETRIGGER_ICON_MAP = {
-    restart: '↺',
-    restart_from_beginning: '↺',
-    stop: '■',
-    stop_then_start: '■',
-    toggle: '⏯',
-    toggle_pause: '⏯',
-    resume: '▶',
-    resume_from_position: '▶'
-};
-const RETRIGGER_IMAGE_MAP = {
-    fade: '../../assets/icons/fade&stop.png',
-    fade_out: '../../assets/icons/fade&stop.png',
-    fade_out_and_stop: '../../assets/icons/fade&stop.png',
-    restart: '../../assets/icons/restart.png',
-    restart_from_beginning: '../../assets/icons/restart.png',
-    toggle: '../../assets/icons/playpause.png',
-    toggle_pause: '../../assets/icons/playpause.png',
-    toggle_pause_play: '../../assets/icons/playpause.png',
-    stop: '../../assets/icons/stop.png',
-    stop_then_start: '../../assets/icons/stop.png',
-    do_nothing: '../../assets/icons/donothing.png',
-    do_nothing_if_playing: '../../assets/icons/donothing.png',
-    play_next_item: '../../assets/icons/skip-end.png',
-    replay_current_item: '../../assets/icons/skip-start.png',
-    play_new_instance: '../../assets/icons/playnew.png'
-};
 const DUCK_TRIGGER_ICON_PATH = '../../assets/icons/DUCKING_TRIGGER.png';
 const DUCK_ACTIVE_ICON_PATH = '../../assets/icons/DUCKED.png';
 let dragOverCueId = null;
@@ -135,8 +112,37 @@ function applyEditCardAppearance(card, cue) {
     card.style.backgroundColor = hex;
     card.style.color = getContrastTextColors(hex).primary;
     card.style.borderColor = hex === DEFAULT_CUE_BUTTON_COLOR ? '#666' : hex;
-    const preview = card.querySelector('.cue-edit-color-preview');
-    if (preview) preview.style.backgroundColor = hex;
+}
+
+function updateEditCardLoopButton(button, loopEnabled) {
+    if (!button) return;
+    const enabled = !!loopEnabled;
+    button.classList.toggle('active', enabled);
+    button.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    button.title = enabled ? 'Loop enabled — click to disable' : 'Loop disabled — click to enable';
+}
+
+function refreshEditCardLoopState(cueId) {
+    const card = cueGridContainer?.querySelector(`.cue-edit-card[data-cue-id="${cueId}"]`);
+    const cue = cueStore?.getCueById?.(cueId);
+    updateEditCardLoopButton(card?.querySelector('.cue-edit-loop-btn'), cue?.loop);
+}
+
+function bindEditCardLoopButton(button, cueId) {
+    if (!button) return;
+    const cue = cueStore?.getCueById?.(cueId);
+    updateEditCardLoopButton(button, cue?.loop);
+    button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const currentCue = cueStore?.getCueById?.(cueId);
+        const nextLoop = !currentCue?.loop;
+        updateEditCardLoopButton(button, nextLoop);
+        saveCuePatchDebounced(cueId, { loop: nextLoop });
+        const card = button.closest('.cue-edit-card');
+        if (card) {
+            updateCueIndicatorStrip(card, { ...currentCue, loop: nextLoop }, getAppConfigForWaveform());
+        }
+    });
 }
 
 function refreshEditCardColor(cueId, color) {
@@ -146,29 +152,7 @@ function refreshEditCardColor(cueId, color) {
     if (!cue) return;
     cue.buttonColor = color || null;
     applyEditCardAppearance(card, cue);
-    const norm = normalizeHexColor(color);
-    card.querySelectorAll('.cue-color-swatch').forEach((swatch) => {
-        swatch.classList.toggle('active', normalizeHexColor(swatch.title) === norm);
-    });
-}
-
-function buildEditCardColorSwatches(container, cueId, currentColor) {
-    if (!container) return;
-    container.innerHTML = '';
-    const current = normalizeHexColor(currentColor);
-    PRESET_BUTTON_COLORS.forEach((color) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = `cue-color-swatch${current === color ? ' active' : ''}`;
-        btn.style.backgroundColor = color;
-        btn.title = color;
-        btn.addEventListener('click', (event) => {
-            event.stopPropagation();
-            saveCuePatchDebounced(cueId, { buttonColor: color });
-            refreshEditCardColor(cueId, color);
-        });
-        container.appendChild(btn);
-    });
+    syncEditCardColorSwatches(card.querySelector('.cue-edit-color-swatches'), color);
 }
 
 function getWrapperCueId(wrapper) {
@@ -183,7 +167,7 @@ function bindCueWrapperDragReorder(cueWrapper, cue) {
     cueWrapper.draggable = isEditModeActive;
     cueWrapper.classList.toggle('draggable-cue-wrapper', isEditModeActive);
 
-    const dragCancelSelector = '.cue-select-checkbox, .playlist-nav-btn, .cue-edit-name, .cue-color-swatch, .cue-edit-settings-btn, .cue-edit-volume-row, .cue-edit-volume, .cue-button-waveform-wrap, input[type="range"], input, textarea, select, button';
+    const dragCancelSelector = '.playlist-nav-btn, .cue-edit-name, .cue-color-swatch, .cue-color-custom-wrap, .cue-edit-settings-btn, .cue-edit-loop-btn, .cue-edit-volume-row, .cue-edit-volume, .cue-button-waveform-wrap, input[type="range"], input[type="color"], textarea, select, button';
 
     const restoreWrapperDraggable = () => {
         if (uiCore?.isPersistedEditMode?.()) {
@@ -294,7 +278,6 @@ function appendEditModeCueCard(cue, cueWrapper) {
     card.innerHTML = `
         <div class="cue-edit-top">
             <div class="cue-edit-top-right">
-                <div class="cue-edit-color-preview" title="Button color"></div>
                 <button type="button" class="cue-edit-settings-btn" title="Cue properties" aria-label="Cue properties">&#9881;</button>
             </div>
         </div>
@@ -305,11 +288,21 @@ function appendEditModeCueCard(cue, cueWrapper) {
             <span class="cue-edit-volume-pct">${volPct}%</span>
             <input type="range" class="cue-edit-volume" min="0" max="100" step="1" value="${volPct}" aria-label="Cue volume">
         </div>
+        <div class="cue-edit-actions-row">
+            <button type="button" class="cue-edit-loop-btn" aria-pressed="${cue.loop ? 'true' : 'false'}" aria-label="Toggle loop" title="Loop disabled — click to enable">${LOOP_BADGE_GLYPH}</button>
+        </div>
         <div class="cue-edit-type">${cue.type === 'playlist' ? 'Playlist' : 'Single file'}</div>
     `;
 
     applyEditCardAppearance(card, cue);
-    buildEditCardColorSwatches(card.querySelector('.cue-edit-color-swatches'), cue.id, cue.buttonColor);
+    updateCueIndicatorStrip(card, cue, getAppConfigForWaveform());
+    buildEditCardColorSwatches(card.querySelector('.cue-edit-color-swatches'), cue.buttonColor, {
+        onSelectColor: (color) => {
+            saveCuePatchDebounced(cue.id, { buttonColor: color });
+            refreshEditCardColor(cue.id, color);
+        },
+        getRecentColors: () => getAppConfigForWaveform().recentButtonColors || [],
+    });
 
     const nameInput = card.querySelector('.cue-edit-name');
     nameInput.value = cue.name || '';
@@ -349,27 +342,41 @@ function appendEditModeCueCard(cue, cueWrapper) {
         uiCore?.openPropertiesSidebar?.(cue);
     });
 
-    card.addEventListener('click', (event) => {
-        if (event.target.closest('.cue-edit-name, .cue-color-swatch, .cue-edit-settings-btn, .cue-edit-volume-row')) return;
-        const isMultiSelect = event.ctrlKey || event.metaKey;
-        if (isMultiSelect) {
-            event.preventDefault();
-            toggleCueSelection(cue.id);
-            return;
-        }
-        if (event.shiftKey) {
-            event.preventDefault();
-            if (selectionAnchorId) {
-                selectCueRange(selectionAnchorId, cue.id);
-            } else {
-                setSingleCueSelection(cue.id);
-            }
-            return;
-        }
-        setSingleCueSelection(cue.id);
-    });
+    bindEditCardLoopButton(card.querySelector('.cue-edit-loop-btn'), cue.id);
+
+    card.addEventListener('click', (event) => handleEditCueCardSelectionClick(event, cue));
 
     cueWrapper.appendChild(card);
+}
+
+function handleEditCueCardSelectionClick(event, cue) {
+    if (!uiCore?.isPersistedEditMode?.()) return;
+    if (event.target.closest(
+        '.cue-edit-name, .cue-color-swatch, .cue-color-custom-wrap, .cue-edit-settings-btn, .cue-edit-loop-btn, .cue-edit-volume-row, .cue-edit-volume, .cue-edit-drag, .cue-move-btn, input[type="range"], input[type="color"]'
+    )) {
+        return;
+    }
+
+    const isMultiSelect = event.ctrlKey || event.metaKey;
+    if (isMultiSelect) {
+        event.preventDefault();
+        toggleCueSelection(cue.id);
+        return;
+    }
+    if (event.shiftKey) {
+        event.preventDefault();
+        if (selectionAnchorId) {
+            selectCueRange(selectionAnchorId, cue.id);
+        } else {
+            setSingleCueSelection(cue.id);
+        }
+        return;
+    }
+    if (selectedCueIds.size === 1 && selectedCueIds.has(cue.id)) {
+        clearCueSelection();
+        return;
+    }
+    setSingleCueSelection(cue.id);
 }
 
 function getOrderedSelectedCueIds(primaryCueId) {
@@ -464,7 +471,7 @@ function updateDeleteSelectedButton() {
     deleteSelectedCuesBtn.textContent = count > 0 ? `Delete (${count})` : 'Delete Selected';
     deleteSelectedCuesBtn.title = count > 0
         ? `Delete ${count} selected cue${count === 1 ? '' : 's'} (Delete key)`
-        : 'Select cues with the checkbox or Ctrl/Cmd+click, then delete';
+        : 'Select cues with click or Ctrl/Cmd+click, then delete';
 }
 
 export function selectAllCues() {
@@ -481,8 +488,6 @@ function applySelectionToDom() {
         const cueId = getWrapperCueId(wrapper);
         const isSelected = !!cueId && selectedCueIds.has(cueId);
         wrapper.classList.toggle('cue-selected', isSelected);
-        const checkbox = wrapper.querySelector('.cue-select-checkbox');
-        if (checkbox) checkbox.checked = isSelected;
     });
     updateDeleteSelectedButton();
 }
@@ -674,7 +679,8 @@ function renderCues() {
     selectedCueIds.forEach(id => {
         if (!validCueIds.has(id)) selectedCueIds.delete(id);
     });
-    const isEditModeActive = uiCore?.isPersistedEditMode?.() ?? false;
+    const isEditModeActive = uiCore?.isEditMode?.() ?? false;
+    const isPersistedEditMode = uiCore?.isPersistedEditMode?.() ?? false;
     const cueMap = new Map(cues.map(cue => [cue.id, cue]));
 
     function appendCueCard(cue, parentContainer) {
@@ -683,23 +689,6 @@ function renderCues() {
         cueWrapper.dataset.cueId = cue.id;
 
         if (isEditModeActive) {
-            const selectCheckbox = document.createElement('input');
-            selectCheckbox.type = 'checkbox';
-            selectCheckbox.className = 'cue-select-checkbox';
-            selectCheckbox.checked = selectedCueIds.has(cue.id);
-            selectCheckbox.title = 'Select cue';
-            selectCheckbox.addEventListener('click', (event) => event.stopPropagation());
-            selectCheckbox.addEventListener('change', (event) => {
-                event.stopPropagation();
-                if (selectCheckbox.checked) {
-                    selectedCueIds.add(cue.id);
-                    selectionAnchorId = cue.id;
-                } else {
-                    selectedCueIds.delete(cue.id);
-                }
-                applySelectionToDom();
-            });
-            cueWrapper.appendChild(selectCheckbox);
             appendEditModeCueCard(cue, cueWrapper);
             parentContainer.appendChild(cueWrapper);
             bindCueWrapperDragReorder(cueWrapper, cue);
@@ -724,19 +713,8 @@ function renderCues() {
         statusIndicator.id = `cue-status-${cue.id}`;
         button.appendChild(statusIndicator);
 
-        const loopIcon = document.createElement('img');
-        loopIcon.className = 'cue-loop-icon';
-        loopIcon.src = '../../assets/icons/loop.png';
-        loopIcon.alt = 'Loop';
-        button.appendChild(loopIcon);
-
-        const retriggerStrip = document.createElement('div');
-        retriggerStrip.className = 'cue-retrigger-strip';
-        button.appendChild(retriggerStrip);
-
-        const retriggerIcon = document.createElement('span');
-        retriggerIcon.className = 'cue-retrigger-icon';
-        retriggerStrip.appendChild(retriggerIcon);
+        const indicatorRefs = ensureCueIndicatorStrip(button);
+        const { strip: indicatorStrip, retriggerIcon, loopBadge: loopIcon } = indicatorRefs;
 
         const duckStrip = document.createElement('div');
         duckStrip.className = 'cue-duck-strip';
@@ -816,8 +794,8 @@ function renderCues() {
         cueMeterElements[cue.id] = meterBar;
         cueMeterLevels[cue.id] = 0;
         cueBadgeElements[cue.id] = {
+            indicatorStrip,
             loopIcon,
-            retriggerStrip,
             retriggerIcon,
             duckStrip,
             duckTriggerIcon,
@@ -931,7 +909,7 @@ function renderCues() {
         }
     });
 
-    if (isEditModeActive) {
+    if (isPersistedEditMode) {
         cueGridContainer.appendChild(createAddSectionButton(async () => {
             if (cueStore.addSection) {
                 await cueStore.addSection('New Section');
@@ -979,7 +957,7 @@ function handleCueButtonClick(event, cue) {
         return;
     }
 
-    const retriggerBehavior = cue.retriggerBehavior || uiCore.getCurrentAppConfig().defaultRetriggerBehavior || 'restart';
+    const retriggerBehavior = resolveEffectiveRetriggerBehavior(cue, uiCore.getCurrentAppConfig());
     uiLog.debug(`UI: Playback mode action for cue ${cue.id}. Using retrigger behavior: ${retriggerBehavior}`);
     audioController.default.toggle(cue.id, false, retriggerBehavior);
 }
@@ -1029,7 +1007,7 @@ function updateButtonPlayingState(cueId, isPlaying, statusTextArg = null, isCued
     instanceCounter.style.display = 'none'; // Default hidden
 
     button.classList.remove('playing', 'paused', 'cued');
-    statusIndicator.style.display = 'block'; // Default to visible
+    statusIndicator.style.display = 'none';
     cuedTextIndicator.style.display = 'none'; // Default to hidden
 
     // Handle crossfade status text (if provided)
@@ -1145,6 +1123,7 @@ function updateButtonPlayingState(cueId, isPlaying, statusTextArg = null, isCued
                 if (playlistInfoHTML) nameHTML += `<br>${playlistInfoHTML}`;
             }
         } else { // Stopped / Idle (and not specifically cued by logic above, e.g. single file cue just stopped)
+            statusIndicator.style.display = 'none';
             // For idle single file cues, playbackState might be null or have isPlaying/isPaused false.
             // If it's a playlist and truly idle (no specific next item from isCued logic), 
             // playbackState.nextPlaylistItemName (first item) should be populated by audioController's fallback.
@@ -1189,6 +1168,9 @@ function updateButtonPlayingState(cueId, isPlaying, statusTextArg = null, isCued
         } else if (nameContainer) {
              nameContainer.innerHTML = nameHTML; // Restore original name
         }
+        if (!button.classList.contains('playing') && !button.classList.contains('paused') && !button.classList.contains('cued')) {
+            statusIndicator.style.display = 'none';
+        }
     }
 
     // if (nameContainer) nameContainer.innerHTML = nameHTML; // Logic moved inside blocks to avoid overwrite
@@ -1196,14 +1178,7 @@ function updateButtonPlayingState(cueId, isPlaying, statusTextArg = null, isCued
 
     applyCueBadgeState(cueId, playbackState);
 
-    // Pass the elements through to updateCueButtonTime
-    updateCueButtonTime(cueId, elements); 
-
-    if (statusIndicator.style.display !== 'none') {
-        statusIndicator.innerHTML = `<img src="${statusIconSrc}" alt="${statusIconAlt}" class="cue-status-icon">`;
-    } else {
-        statusIndicator.innerHTML = ''; // Clear if hidden to prevent old icon flash
-    }
+    updateCueButtonTime(cueId, elements);
 }
 
 function updateCueButtonTime(cueId, elements = null, isFadingIn = false, isFadingOut = false, fadeTimeRemainingMs = 0) {
@@ -1400,6 +1375,24 @@ function _updateButtonTimeDisplay(button, localElements, displayCurrentTimeForma
     }
 }
 
+function refreshEditCardIndicators(cueId) {
+    if (!cueStore || !cueGridContainer) return;
+    const cue = cueStore.getCueById(cueId);
+    const card = cueGridContainer.querySelector(`.cue-edit-card[data-cue-id="${cueId}"]`);
+    if (cue && card) {
+        updateCueIndicatorStrip(card, cue, getAppConfigForWaveform());
+        refreshEditCardLoopState(cueId);
+    }
+}
+
+function refreshAllCueBadges() {
+    if (!cueStore) return;
+    cueStore.getAllCues().forEach((cue) => {
+        applyCueBadgeState(cue.id);
+        refreshEditCardIndicators(cue.id);
+    });
+}
+
 function applyCueBadgeState(cueId, playbackState = null) {
     if (!cueStore) return;
     const cue = cueStore.getCueById(cueId);
@@ -1408,43 +1401,14 @@ function applyCueBadgeState(cueId, playbackState = null) {
     const badges = cueBadgeElements[cueId];
     if (!badges) return;
 
-    const loopEnabled = !!cue.loop;
     const isDuckingTrigger = !!cue.isDuckingTrigger;
     const isCurrentlyDucked = !!(playbackState?.isDucked);
 
-    let retriggerBehavior = cue.retriggerBehavior || cue.retriggerAction || cue.retriggerActionCompanion;
-    if (!retriggerBehavior && uiCore && typeof uiCore.getCurrentAppConfig === 'function') {
-        const config = uiCore.getCurrentAppConfig();
-        retriggerBehavior = config?.defaultRetriggerBehavior || config?.defaultRetriggerAction || null;
+    const button = document.getElementById(`cue-btn-${cueId}`);
+    if (button) {
+        updateCueIndicatorStrip(button, cue, getAppConfigForWaveform());
     }
-
-    if (badges.loopIcon) {
-        badges.loopIcon.classList.toggle('enabled', loopEnabled);
-    }
-
-    if (badges.retriggerIcon && badges.retriggerStrip) {
-        if (retriggerBehavior) {
-            const normalized = String(retriggerBehavior).toLowerCase().replace(/\s+/g, '_').replace(/-+/g, '_');
-            const imagePath = RETRIGGER_IMAGE_MAP[normalized];
-            if (imagePath) {
-                badges.retriggerIcon.classList.add('icon-image');
-                badges.retriggerIcon.style.backgroundImage = `url(${imagePath})`;
-                badges.retriggerIcon.textContent = '';
-            } else {
-                const glyph = RETRIGGER_ICON_MAP[normalized] || 'R';
-                badges.retriggerIcon.classList.remove('icon-image');
-                badges.retriggerIcon.style.backgroundImage = 'none';
-                badges.retriggerIcon.textContent = glyph;
-            }
-            badges.retriggerIcon.classList.add('visible');
-            badges.retriggerStrip.style.display = 'flex';
-        } else {
-            badges.retriggerIcon.classList.remove('visible', 'icon-image');
-            badges.retriggerIcon.style.backgroundImage = 'none';
-            badges.retriggerIcon.textContent = '';
-            badges.retriggerStrip.style.display = 'none';
-        }
-    }
+    refreshEditCardIndicators(cueId);
 
     if (badges.duckTriggerIcon) {
         badges.duckTriggerIcon.classList.toggle('visible', isDuckingTrigger);
@@ -1529,10 +1493,11 @@ function updateAllCueButtonTimes() {
 
 export {
     renderCues,
-    updateButtonPlayingState, // Keep this exported if audioController calls it directly
-    // updateCueButtonTime is mostly internal to renderCues now, but export if needed elsewhere
+    updateButtonPlayingState,
     updateCueButtonTime,
-    updateCueButtonTimeWithData, // New function for direct time data updates from IPC
+    updateCueButtonTimeWithData,
     updateCueMeterLevel,
-    resetCueMeter
+    resetCueMeter,
+    applyCueBadgeState,
+    refreshAllCueBadges
 };

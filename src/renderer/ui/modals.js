@@ -212,7 +212,6 @@ async function handleSaveNewCueFromModal() {
         trimEndTime: (modalTrimEndTimeInput && modalTrimEndTimeInput.value !== '') ? parseFloat(modalTrimEndTimeInput.value) : null,
         shuffle: false, 
         repeatOne: false, 
-        retriggerBehavior: currentAppConfig.defaultRetriggerBehavior 
     };
 
     if (cueType === 'playlist') {
@@ -274,7 +273,7 @@ async function handleAddFilesAsSeparateCues() {
                 fadeInTime: currentAppConfig.defaultFadeInTime,
                 fadeOutTime: currentAppConfig.defaultFadeOutTime,
                 loop: currentAppConfig.defaultLoopSingleCue,
-                retriggerBehavior: currentAppConfig.defaultRetriggerBehavior,
+                retriggerBehavior: null,
                 trimStartTime: null,
                 trimEndTime: null
             };
@@ -316,7 +315,7 @@ async function handleAddFilesAsPlaylistCue() {
             loop: false,
             shuffle: false,
             repeatOne: false,
-            retriggerBehavior: currentAppConfig.defaultRetriggerBehavior
+            retriggerBehavior: null
         };
 
         await cueStore.addOrUpdateCue(newCueData, droppedSectionId ? { sectionId: droppedSectionId } : null);

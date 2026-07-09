@@ -4,6 +4,12 @@
 import * as ipcRendererBindingsModule from '../ipcRendererBindings.js'; // Import the module
 import { uiLog } from './uiLogger.js';
 import { normalizeRecentColors } from './buttonColorPresets.js';
+import {
+    populateRetriggerSelect,
+    updateRetriggerHelpText,
+    renderRetriggerLegend
+} from '../retriggerBehaviorCatalog.js';
+import { refreshAllCueBadges } from './cueGrid.js';
 
 // let ipcRendererBindings; // REMOVE: This will now refer to the imported module alias
 
@@ -33,6 +39,8 @@ let configDefaultFadeInInput; // in seconds in UI, converted to ms for config
 let configDefaultFadeOutInput; // in seconds in UI, converted to ms for config
 let configDefaultLoopSingleCueCheckbox;
 let configDefaultRetriggerBehaviorSelect;
+let retriggerBehaviorHelp;
+let globalRetriggerLegend;
 let configDefaultStopAllBehaviorSelect;
 let configDefaultStopAllFadeOutInput;
 let configDefaultStopAllFadeOutGroup;
@@ -100,9 +108,18 @@ function setupDeviceChangeListener() {
 }
 
 // Function to set the audioController reference
+function syncAppConfigToAudioController(config) {
+    if (audioControllerRef && typeof audioControllerRef.updateAppConfig === 'function') {
+        audioControllerRef.updateAppConfig(config);
+    }
+}
+
 function setAudioControllerRef(audioController) {
     audioControllerRef = audioController;
     uiLog.info('AppConfigUI: AudioController reference set');
+    if (audioControllerRef && Object.keys(currentAppConfig).length > 0) {
+        syncAppConfigToAudioController(currentAppConfig);
+    }
 }
 
 function cacheDOMElements() {
@@ -121,6 +138,10 @@ function cacheDOMElements() {
     configDefaultFadeOutInput = document.getElementById('defaultFadeOut');
     configDefaultLoopSingleCueCheckbox = document.getElementById('defaultLoop');
     configDefaultRetriggerBehaviorSelect = document.getElementById('retriggerBehavior');
+    retriggerBehaviorHelp = document.getElementById('retriggerBehaviorHelp');
+    globalRetriggerLegend = document.getElementById('globalRetriggerLegend');
+    populateRetriggerSelect(configDefaultRetriggerBehaviorSelect, { includeDefault: false });
+    renderRetriggerLegend(globalRetriggerLegend);
     configDefaultStopAllBehaviorSelect = document.getElementById('defaultStopAllBehavior');
     configDefaultStopAllFadeOutInput = document.getElementById('defaultStopAllFadeOut');
     configDefaultStopAllFadeOutGroup = document.getElementById('defaultStopAllFadeOutGroup');
@@ -162,7 +183,12 @@ function bindEventListeners() {
         uiLog.error('AppConfigUI (DEBUG): configDefaultFadeOutInput NOT FOUND when trying to bind event listener!');
     }
     if (configDefaultLoopSingleCueCheckbox) configDefaultLoopSingleCueCheckbox.addEventListener('change', handleAppConfigChange);
-    if (configDefaultRetriggerBehaviorSelect) configDefaultRetriggerBehaviorSelect.addEventListener('change', handleAppConfigChange);
+    if (configDefaultRetriggerBehaviorSelect) {
+        configDefaultRetriggerBehaviorSelect.addEventListener('change', () => {
+            updateRetriggerHelpText(configDefaultRetriggerBehaviorSelect, retriggerBehaviorHelp);
+            handleAppConfigChange();
+        });
+    }
     if (configDefaultStopAllBehaviorSelect) {
         configDefaultStopAllBehaviorSelect.value = currentAppConfig.defaultStopAllBehavior || 'stop';
         configDefaultStopAllBehaviorSelect.addEventListener('change', () => {
@@ -244,7 +270,10 @@ function populateConfigSidebar(config) {
         if (configDefaultFadeOutInput) configDefaultFadeOutInput.value = currentAppConfig.defaultFadeOutTime !== undefined ? currentAppConfig.defaultFadeOutTime : 0;
         
         if (configDefaultLoopSingleCueCheckbox) configDefaultLoopSingleCueCheckbox.checked = currentAppConfig.defaultLoopSingleCue || false;
-        if (configDefaultRetriggerBehaviorSelect) configDefaultRetriggerBehaviorSelect.value = currentAppConfig.defaultRetriggerBehavior || 'restart';
+        if (configDefaultRetriggerBehaviorSelect) {
+            configDefaultRetriggerBehaviorSelect.value = currentAppConfig.defaultRetriggerBehavior || 'restart';
+            updateRetriggerHelpText(configDefaultRetriggerBehaviorSelect, retriggerBehaviorHelp);
+        }
         if (configDefaultStopAllBehaviorSelect) configDefaultStopAllBehaviorSelect.value = currentAppConfig.defaultStopAllBehavior || 'stop';
         if (configDefaultStopAllFadeOutInput) configDefaultStopAllFadeOutInput.value = currentAppConfig.defaultStopAllFadeOutTime || 1500;
         if (configCrossfadeTimeInput) configCrossfadeTimeInput.value = currentAppConfig.crossfadeTime || 2000;
@@ -555,6 +584,7 @@ async function savePartialAppConfiguration(partialSettings) {
             if (result.config) {
                 currentAppConfig = { ...currentAppConfig, ...result.config };
             }
+            syncAppConfigToAudioController(currentAppConfig);
         }
         return result;
     } catch (error) {
@@ -622,6 +652,10 @@ async function saveAppConfiguration() {
             }
             
             currentAppConfig = { ...currentAppConfig, ...configToSave };
+            syncAppConfigToAudioController(currentAppConfig);
+            if (typeof refreshAllCueBadges === 'function') {
+                refreshAllCueBadges();
+            }
         } else {
             uiLog.error('AppConfigUI: Failed to save app configuration via main process:', result ? result.error : 'Unknown error');
         }
@@ -640,6 +674,7 @@ async function forceLoadAndApplyAppConfiguration() {
         const loadedConfig = await ipcRendererBindingsModule.getAppConfig();
         uiLog.info('AppConfigUI: Successfully loaded config from main:', loadedConfig);
         populateConfigSidebar(loadedConfig);
+        syncAppConfigToAudioController(loadedConfig);
         await loadAudioOutputDevices();
         return loadedConfig; 
     } catch (error) {

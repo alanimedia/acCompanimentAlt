@@ -6,6 +6,7 @@ import { getPlaybackTimesUtil, formatTimeMMSS, calculateEffectiveTrimmedDuration
 import { init as initEmitter, sendPlaybackTimeUpdate } from './audioPlaybackIPCEmitter.js';
 import { createPlaybackInstance } from './playbackInstanceHandler.js';
 import { log } from './audioPlaybackLogger.js';
+import { resolveEffectiveRetriggerBehavior } from './retriggerBehaviorUtils.js';
 
 // Local function to get cue by ID using cueStore directly
 function getGlobalCueById(cueId) {
@@ -569,7 +570,7 @@ function playCueByIdFromMain(cueId, source = 'unknown') {
 
     log.info(`AudioController: Found cue "${cue.name}" (ID: ${cueId}) for source: ${source}`);
 
-    let determinedRetrigger = source === 'companion' ? (cue.retriggerActionCompanion || cue.retriggerAction || 'restart') : (cue.retriggerAction || 'restart');
+    let determinedRetrigger = resolveEffectiveRetriggerBehavior(cue, getAppConfig());
     log.debug(`AudioController: Determined retriggerBehavior: '${determinedRetrigger}' for cue '${cue.name}' from source '${source}'`);
 
     const isFromCompanionFlag = source === 'companion';

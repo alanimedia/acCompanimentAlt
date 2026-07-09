@@ -1,7 +1,7 @@
 // Companion_soundboard/src/renderer/audioPlaybackToggle.js
 // Toggle and retrigger behavior logic for audio playback management
 
-import { log } from './audioPlaybackLogger.js';
+import { resolveEffectiveRetriggerBehavior } from './retriggerBehaviorUtils.js';
 import { _handleCrossfadeStart } from './audioPlaybackCrossfade.js';
 import { playlistNavigateNext } from './audioPlaybackPlaylist.js';
 import { _generateShuffleOrder } from './audioPlaybackUtils.js';
@@ -42,7 +42,7 @@ export function toggleCue(cueIdToToggle, fromCompanion = false, retriggerBehavio
         console.log(`AudioPlaybackManager: Crossfade mode DISABLED - using normal toggle behavior`);
     }
     const appConfig = getAppConfigFuncRef ? getAppConfigFuncRef() : {};
-    const retriggerBehavior = retriggerBehaviorOverride || cue.retriggerBehavior || appConfig.defaultRetriggerBehavior || 'toggle_pause_play';
+    const retriggerBehavior = retriggerBehaviorOverride || resolveEffectiveRetriggerBehavior(cue, appConfig);
     
     console.log(`AudioPlaybackManager: Toggle for cue ${cueIdToToggle}. Retrigger behavior: ${retriggerBehavior}. fromCompanion: ${fromCompanion}`);
     

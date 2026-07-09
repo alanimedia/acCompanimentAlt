@@ -1,3 +1,9 @@
+const {
+    normalizeRetriggerBehaviorOverride,
+    hasRetriggerBehaviorOverride,
+    resolveEffectiveRetriggerBehavior
+} = require('./retriggerBehaviorUtils');
+
 const REMOTE_EDITABLE_CUE_FIELDS = new Set([
     'name',
     'volume',
@@ -54,7 +60,7 @@ function sanitizeCuePatch(patch = {}) {
         sanitized.loop = !!patch.loop;
     }
     if (patch.retriggerBehavior !== undefined) {
-        sanitized.retriggerBehavior = String(patch.retriggerBehavior);
+        sanitized.retriggerBehavior = normalizeRetriggerBehaviorOverride(patch.retriggerBehavior);
     }
     if (patch.buttonColor !== undefined) {
         sanitized.buttonColor = patch.buttonColor || null;
@@ -182,6 +188,8 @@ function processCueDetailForRemote(cue, appConfig = {}) {
         effectiveShow = showButtonWaveform === true;
     }
 
+    const retriggerOverride = normalizeRetriggerBehaviorOverride(cue.retriggerBehavior);
+
     return {
         id: cue.id,
         name: cue.name,
@@ -191,7 +199,9 @@ function processCueDetailForRemote(cue, appConfig = {}) {
         fadeInTime: cue.fadeInTime || 0,
         fadeOutTime: cue.fadeOutTime || 0,
         loop: !!cue.loop,
-        retriggerBehavior: cue.retriggerBehavior || 'restart',
+        retriggerBehavior: retriggerOverride,
+        effectiveRetriggerBehavior: resolveEffectiveRetriggerBehavior(cue, appConfig),
+        hasRetriggerOverride: hasRetriggerBehaviorOverride(cue),
         buttonColor: cue.buttonColor || null,
         showButtonWaveform: showButtonWaveform,
         effectiveShowButtonWaveform: effectiveShow,

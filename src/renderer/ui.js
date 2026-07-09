@@ -385,12 +385,19 @@ function applyAppConfiguration(newConfig) {
     if (mainWaveformPanelModule && typeof mainWaveformPanelModule.applyConfig === 'function') {
         mainWaveformPanelModule.applyConfig(newConfig);
     }
+    const ac = audioControllerModule?.default || audioControllerModule;
+    if (ac?.updateAppConfig) {
+        ac.updateAppConfig(newConfig);
+    }
     const defaultShowButtonWaveform = newConfig?.defaultShowButtonWaveform === true;
     if (lastKnownDefaultShowButtonWaveform !== defaultShowButtonWaveform) {
         lastKnownDefaultShowButtonWaveform = defaultShowButtonWaveform;
         if (cueGrid && typeof cueGrid.renderCues === 'function') {
             cueGrid.renderCues();
         }
+    }
+    if (cueGrid && typeof cueGrid.refreshAllCueBadges === 'function') {
+        cueGrid.refreshAllCueBadges();
     }
 }
 
@@ -502,7 +509,6 @@ async function handleSingleFileDrop(filePath, dropTargetElement) {
                 fadeInTime: activeAppConfig.defaultFadeInTime,
                 fadeOutTime: activeAppConfig.defaultFadeOutTime,
                 loop: activeAppConfig.defaultLoopSingleCue,
-                retriggerBehavior: activeAppConfig.defaultRetriggerBehavior,
                 shuffle: false, repeatOne: false, trimStartTime: null, trimEndTime: null,
             };
             console.log("UI Core (SingleDrop): Prepared new cue data:", newCueData);

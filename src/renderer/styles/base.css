@@ -31,6 +31,72 @@ h1 {
     color: var(--text-secondary-color);
 }
 
+.retrigger-help {
+    margin-top: 6px;
+    line-height: 1.45;
+}
+
+.retrigger-legend {
+    margin-top: 10px;
+    font-size: 0.85em;
+    color: var(--text-secondary-color);
+}
+
+.retrigger-legend summary {
+    cursor: pointer;
+    user-select: none;
+    color: var(--text-secondary-color);
+}
+
+.retrigger-legend-body {
+    margin-top: 8px;
+}
+
+.retrigger-legend-intro {
+    margin: 0 0 8px;
+}
+
+.retrigger-legend-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.retrigger-legend-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
+.retrigger-legend-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary-color, #f3f3f3);
+}
+
+.retrigger-legend-icon.icon-image {
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    color: transparent;
+}
+
+.retrigger-legend-text strong {
+    color: var(--text-primary-color, #f3f3f3);
+    font-weight: 600;
+}
+
 .sidebar-hr {
     border: 0;
     height: 1px;
