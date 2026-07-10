@@ -5,10 +5,23 @@ import { log } from './audioPlaybackLogger.js';
 import { resolveEffectiveRetriggerBehavior } from './retriggerBehaviorUtils.js';
 import { resolveEffectiveFadeOutTime } from './fadeTimeUtils.js';
 import { _applyDucking, _revertDucking } from './audioPlaybackDucking.js';
-import { _generateShuffleOrder } from './audioPlaybackUtils.js';
+import { _generateShuffleOrder, resolveConfiguredCueVolume, ensurePlayingStateOriginalVolume } from './audioPlaybackUtils.js';
 import { _addToPlayOrder, _removeFromPlayOrder, _updateCurrentCueForCompanion, _cleanupSoundInstance } from './audioPlaybackStateManagement.js';
 import { _handlePlaylistEnd } from './audioPlaybackPlaylistHandling.js';
 import { clearTimeUpdateIntervals } from './playbackTimeManager.js'; // Import this
+
+function applyCrossfadeInFadeState(playingStateEntry, crossfadeInfo, cue) {
+    if (!crossfadeInfo?.isCrossfadeIn) return;
+    const duration = crossfadeInfo.crossfadeDuration || 2000;
+    const startTime = crossfadeInfo.crossfadeStartTime || Date.now();
+    const configuredVolume = resolveConfiguredCueVolume(cue, playingStateEntry);
+    playingStateEntry.isFadingIn = true;
+    playingStateEntry.isFadingOut = false;
+    playingStateEntry.fadeStartTime = startTime;
+    playingStateEntry.fadeTotalDurationMs = duration;
+    playingStateEntry.originalVolume = configuredVolume;
+    crossfadeInfo.targetVolume = configuredVolume;
+}
 
 // Core playback functions
 export function play(cue, isResume = false, context) {
@@ -140,6 +153,7 @@ export function _initializeAndPlayNew(cue, allowMultipleInstances = false, conte
     const cueToUse = latestCue || cue; // Fallback to original if store lookup fails
     
     const fadeInTime = cueToUse.fadeInTime || 0;
+    const configuredVolume = resolveConfiguredCueVolume(cueToUse);
     const initialPlayingState = {
         sound: null, 
         cue: cueToUse, 
@@ -149,7 +163,7 @@ export function _initializeAndPlayNew(cue, allowMultipleInstances = false, conte
         isFadingOut: false,
         fadeTotalDurationMs: fadeInTime > 0 ? fadeInTime : 0,
         fadeStartTime: fadeInTime > 0 ? Date.now() : 0,
-        originalVolume: cueToUse.volume !== undefined ? cueToUse.volume : 1.0,
+        originalVolume: configuredVolume,
         originalVolumeBeforeDuck: null, 
         isDucked: false,
         activeDuckingTriggerId: null,
@@ -201,6 +215,9 @@ export function _initializeAndPlayNew(cue, allowMultipleInstances = false, conte
             shufflePlaybackOrder: [],
             ...(existingCrossfadeInfo && { crossfadeInfo: existingCrossfadeInfo })
         };
+        if (existingCrossfadeInfo) {
+            applyCrossfadeInFadeState(currentlyPlaying[cueId], existingCrossfadeInfo, cueToUse);
+        }
         if (cueToUse.shuffle && currentlyPlaying[cueId].originalPlaylistItems.length > 1) {
             _generateShuffleOrder(cueId, currentlyPlaying);
             _playTargetItem(cueId, 0, false, context);
@@ -219,6 +236,9 @@ export function _initializeAndPlayNew(cue, allowMultipleInstances = false, conte
             ...initialPlayingState,
             ...(existingCrossfadeInfo && { crossfadeInfo: existingCrossfadeInfo })
         };
+        if (existingCrossfadeInfo) {
+            applyCrossfadeInFadeState(currentlyPlaying[cueId], existingCrossfadeInfo, cueToUse);
+        }
         _playTargetItem(cueId, undefined, false, context);
     }
     
@@ -301,9 +321,11 @@ export function _playTargetItem(cueId, playlistItemIndex, isResumeForSeekAndFade
         currentItemName = playlistItem.name || playlistItem.path?.split(/[\\\/]/).pop() || `Item ${playIndexToUseFromOriginalItems + 1}`;
         actualItemIndexInOriginalList = playIndexToUseFromOriginalItems;
         playingState.currentPlaylistItemIndex = playlistItemIndex; 
+        ensurePlayingStateOriginalVolume(playingState, mainCue, playlistItem);
     } else {
         filePath = mainCue.filePath;
-        actualItemIndexInOriginalList = undefined; 
+        actualItemIndexInOriginalList = undefined;
+        ensurePlayingStateOriginalVolume(playingState, mainCue);
     }
 
     // Enhanced file path validation
@@ -532,6 +554,7 @@ export function stop(cueId, useFade = true, fromCompanion = false, isRetriggerSt
 
     if (playingState && playingState.sound) {
         const cue = getGlobalCueByIdRef(cueId); // Get full cue data for fade times etc.
+        ensurePlayingStateOriginalVolume(playingState, cue);
         const appConfig = getAppConfigFuncRef ? getAppConfigFuncRef() : {};
         const fadeOutTime = resolveEffectiveFadeOutTime(cue, appConfig, { stopReason });
         const effectiveFadeOutTime = useFade ? fadeOutTime : 0;

@@ -407,10 +407,17 @@ export function createOnfadeHandler(cueId, sound, playingState, filePath, curren
         
         if (playingState.isFadingIn) {
             const elapsedTime = Date.now() - playingState.fadeStartTime;
-            const targetVolume = playingState.originalVolumeBeforeFadeIn !== undefined ? playingState.originalVolumeBeforeFadeIn : (mainCue.volume !== undefined ? mainCue.volume : 1);
+            const targetVolume = playingState.originalVolumeBeforeFadeIn !== undefined
+                ? playingState.originalVolumeBeforeFadeIn
+                : (playingState.originalVolume !== undefined ? playingState.originalVolume : (mainCue.volume !== undefined ? mainCue.volume : 1));
             if (elapsedTime >= playingState.fadeTotalDurationMs || Math.abs(currentVolume - targetVolume) < 0.01) {
                 console.log(`PlaybackEventHandlers: Fade IN complete for ${mainCue.name}.`);
                 playingState.isFadingIn = false;
+                playingState.originalVolume = targetVolume;
+                if (typeof sound.volume === 'function') {
+                    sound.volume(targetVolume);
+                }
+                delete playingState.originalVolumeBeforeFadeIn;
                 // Send an update so the UI knows fading-in is done.
                 audioControllerContext.sendPlaybackTimeUpdate(cueId, sound, playingState, currentItemNameForEvents, 'playing'); 
             }

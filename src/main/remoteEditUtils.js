@@ -1,4 +1,10 @@
 const {
+    normalizeShowButtonWaveformOverride,
+    resolveEffectiveShowButtonWaveform,
+    normalizeShowCueMeterOverride,
+    resolveEffectiveShowCueMeter
+} = require('./showButtonWaveformUtils');
+const {
     normalizeRetriggerBehaviorOverride,
     hasRetriggerBehaviorOverride,
     resolveEffectiveRetriggerBehavior
@@ -12,7 +18,8 @@ const REMOTE_EDITABLE_CUE_FIELDS = new Set([
     'loop',
     'retriggerBehavior',
     'buttonColor',
-    'showButtonWaveform'
+    'showButtonWaveform',
+    'showCueMeter'
 ]);
 
 const REMOTE_EDITABLE_CONFIG_FIELDS = new Set([
@@ -25,6 +32,7 @@ const REMOTE_EDITABLE_CONFIG_FIELDS = new Set([
     'defaultStopAllFadeOutTime',
     'crossfadeTime',
     'defaultShowButtonWaveform',
+    'defaultShowCueMeter',
     'mainWaveformEnabled'
 ]);
 
@@ -69,6 +77,11 @@ function sanitizeCuePatch(patch = {}) {
         if (patch.showButtonWaveform === true) sanitized.showButtonWaveform = true;
         else if (patch.showButtonWaveform === false) sanitized.showButtonWaveform = false;
         else sanitized.showButtonWaveform = null;
+    }
+    if (patch.showCueMeter !== undefined) {
+        if (patch.showCueMeter === true) sanitized.showCueMeter = true;
+        else if (patch.showCueMeter === false) sanitized.showCueMeter = false;
+        else sanitized.showCueMeter = null;
     }
     if (patch.shuffle !== undefined) sanitized.shuffle = !!patch.shuffle;
     if (patch.repeatOne !== undefined) sanitized.repeatOne = !!patch.repeatOne;
@@ -138,8 +151,32 @@ function sanitizeConfigPatch(patch = {}) {
     if (patch.defaultShowButtonWaveform !== undefined) {
         sanitized.defaultShowButtonWaveform = !!patch.defaultShowButtonWaveform;
     }
+    if (patch.defaultShowCueMeter !== undefined) {
+        sanitized.defaultShowCueMeter = !!patch.defaultShowCueMeter;
+    }
     if (patch.mainWaveformEnabled !== undefined) {
         sanitized.mainWaveformEnabled = !!patch.mainWaveformEnabled;
+    }
+    if (patch.audioOutputDeviceId !== undefined) {
+        sanitized.audioOutputDeviceId = String(patch.audioOutputDeviceId || 'default');
+    }
+    if (patch.audioMonitorOutputDeviceId !== undefined) {
+        sanitized.audioMonitorOutputDeviceId = String(patch.audioMonitorOutputDeviceId || 'default');
+    }
+    if (patch.mainOutputVolume !== undefined) {
+        const volume = Number(patch.mainOutputVolume);
+        if (Number.isFinite(volume)) {
+            sanitized.mainOutputVolume = Math.max(0, Math.min(1, volume));
+        }
+    }
+    if (patch.monitorOutputVolume !== undefined) {
+        const volume = Number(patch.monitorOutputVolume);
+        if (Number.isFinite(volume)) {
+            sanitized.monitorOutputVolume = Math.max(0, Math.min(1, volume));
+        }
+    }
+    if (patch.routeShowPlaybackToMonitor !== undefined) {
+        sanitized.routeShowPlaybackToMonitor = !!patch.routeShowPlaybackToMonitor;
     }
     return sanitized;
 }
@@ -155,7 +192,13 @@ function getRemoteConfigSnapshot(appConfig = {}) {
         defaultStopAllFadeOutTime: appConfig.defaultStopAllFadeOutTime ?? 1500,
         crossfadeTime: appConfig.crossfadeTime ?? 2000,
         defaultShowButtonWaveform: appConfig.defaultShowButtonWaveform === true,
-        mainWaveformEnabled: appConfig.mainWaveformEnabled !== false
+        defaultShowCueMeter: appConfig.defaultShowCueMeter !== false,
+        mainWaveformEnabled: appConfig.mainWaveformEnabled !== false,
+        audioOutputDeviceId: appConfig.audioOutputDeviceId || 'default',
+        audioMonitorOutputDeviceId: appConfig.audioMonitorOutputDeviceId || 'default',
+        mainOutputVolume: typeof appConfig.mainOutputVolume === 'number' ? appConfig.mainOutputVolume : 1,
+        monitorOutputVolume: typeof appConfig.monitorOutputVolume === 'number' ? appConfig.monitorOutputVolume : 1,
+        routeShowPlaybackToMonitor: !!appConfig.routeShowPlaybackToMonitor
     };
 }
 
@@ -181,6 +224,7 @@ function reorderCuesByIds(cues, cueIds) {
 function processCueDetailForRemote(cue, appConfig = {}) {
     if (!cue) return null;
     const showButtonWaveform = normalizeShowButtonWaveformOverride(cue.showButtonWaveform);
+    const showCueMeter = normalizeShowCueMeterOverride(cue.showCueMeter);
     let effectiveShow = showButtonWaveform;
     if (showButtonWaveform === null) {
         effectiveShow = appConfig.defaultShowButtonWaveform === true;
@@ -205,6 +249,8 @@ function processCueDetailForRemote(cue, appConfig = {}) {
         buttonColor: cue.buttonColor || null,
         showButtonWaveform: showButtonWaveform,
         effectiveShowButtonWaveform: effectiveShow,
+        showCueMeter: showCueMeter,
+        effectiveShowCueMeter: resolveEffectiveShowCueMeter(cue, appConfig),
         shuffle: !!cue.shuffle,
         repeatOne: !!cue.repeatOne,
         playlistPlayMode: cue.playlistPlayMode || 'continue',
@@ -221,12 +267,6 @@ function processCueDetailForRemote(cue, appConfig = {}) {
             }))
             : []
     };
-}
-
-function normalizeShowButtonWaveformOverride(value) {
-    if (value === true) return true;
-    if (value === false) return false;
-    return null;
 }
 
 module.exports = {

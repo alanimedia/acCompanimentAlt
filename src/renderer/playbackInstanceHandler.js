@@ -27,6 +27,7 @@ import {
     createOnloaderrorHandler,
     createOnplayerrorHandler
 } from './playbackEventHandlersError.js';
+import { resolveConfiguredCueVolume } from './audioPlaybackUtils.js';
 
 export function createPlaybackInstance(
     filePath,
@@ -61,7 +62,12 @@ export function createPlaybackInstance(
 
     // Check if this is a crossfade situation
     const isCrossfadeMode = playingState.crossfadeInfo && playingState.crossfadeInfo.isCrossfadeIn;
-    const initialVolume = isCrossfadeMode ? 0 : (mainCue.volume !== undefined ? mainCue.volume : 1);
+    const playlistItem = playingState.isPlaylist && typeof actualItemIndexInOriginalList === 'number'
+        ? playingState.originalPlaylistItems?.[actualItemIndexInOriginalList]
+        : null;
+    const configuredVolume = resolveConfiguredCueVolume(mainCue, playingState, playlistItem);
+    playingState.originalVolume = configuredVolume;
+    const initialVolume = isCrossfadeMode ? 0 : configuredVolume;
     
     // Crossfade debug logging removed for cleaner console output
 
@@ -309,6 +315,12 @@ function setupAnalyserForSound(cueId, sound, playingState, audioControllerContex
             const internalSound = typeof sound._soundById === 'function' ? sound._soundById(soundId) : null;
             connectAnalyser(internalSound);
             playingState.meterCalibrationMax = 0.25;
+            playingState.lastMeterPeak = null;
+            playingState.lastMeterLevel = null;
+            playingState.lastMeterDbfs = null;
+            if (audioControllerContext?.cueGridAPI?.clearCueMeterClipState) {
+                audioControllerContext.cueGridAPI.clearCueMeterClipState(cueId);
+            }
         });
 
         sound.on('stop', () => disconnectAnalyser());
@@ -346,4 +358,7 @@ function teardownAnalyserForState(cueId, playingState, audioControllerContext) {
     }
 
     playingState.meterCalibrationMax = null;
+    playingState.lastMeterPeak = null;
+    playingState.lastMeterLevel = null;
+    playingState.lastMeterDbfs = null;
 }

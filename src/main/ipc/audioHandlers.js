@@ -8,7 +8,9 @@ const fsPromises = require('fs').promises;
 const { getWaveformPeaksForFile } = require('../waveformPeaksService');
 const {
     normalizeShowButtonWaveformOverride,
-    resolveEffectiveShowButtonWaveform
+    resolveEffectiveShowButtonWaveform,
+    normalizeShowCueMeterOverride,
+    resolveEffectiveShowCueMeter
 } = require('../showButtonWaveformUtils');
 
 let appConfigManagerRef = null;
@@ -25,6 +27,8 @@ function getButtonWaveformFieldsForRemote(cue) {
     return {
         showButtonWaveform: cue ? normalizeShowButtonWaveformOverride(cue.showButtonWaveform) : null,
         effectiveShowButtonWaveform: resolveEffectiveShowButtonWaveform(cue, appConfig),
+        showCueMeter: cue ? normalizeShowCueMeterOverride(cue.showCueMeter) : null,
+        effectiveShowCueMeter: resolveEffectiveShowCueMeter(cue, appConfig),
         hasWaveform: cue ? !!(cue.type === 'single_file'
             ? cue.filePath
             : (cue.playlistItems && cue.playlistItems.length > 0 && cue.playlistItems[0].filePath)) : false
@@ -234,7 +238,16 @@ function registerAudioHandlers(ipcMain, { cueManager, workspaceManager, mainWind
                     trimEndTime,
                     progressRatio,
                     fileProgressRatio,
-                    volume: typeof payload.volume === 'number' ? payload.volume : undefined,
+                    volume: currentCue && typeof currentCue.volume === 'number' ? currentCue.volume : undefined,
+                    outputVolume: typeof payload.outputVolume === 'number'
+                        ? payload.outputVolume
+                        : (typeof payload.volume === 'number' ? payload.volume : undefined),
+                    meterPeak: typeof payload.meterPeak === 'number' ? payload.meterPeak : undefined,
+                    meterLevel: typeof payload.meterLevel === 'number' ? payload.meterLevel : undefined,
+                    meterDbfs: typeof payload.meterDbfs === 'number' ? payload.meterDbfs : undefined,
+                    isFadingIn: !!payload.isFadingIn,
+                    isFadingOut: !!payload.isFadingOut,
+                    fadeTimeRemainingMs: typeof payload.fadeTimeRemainingMs === 'number' ? payload.fadeTimeRemainingMs : 0,
                     buttonColor: currentCue ? (currentCue.buttonColor || null) : null,
                     ...getButtonWaveformFieldsForRemote(currentCue)
                 }
@@ -458,6 +471,33 @@ function registerAudioHandlers(ipcMain, { cueManager, workspaceManager, mainWind
             return { success: true };
         }
         return { success: false, error: 'Main window not available' };
+    });
+
+    ipcMain.on('report-remote-output-levels', (event, levels) => {
+        if (httpServer && typeof httpServer.setCachedRemoteOutputLevels === 'function') {
+            httpServer.setCachedRemoteOutputLevels(levels);
+        }
+    });
+
+    ipcMain.on('report-remote-audio-devices', (event, payload) => {
+        if (httpServer && typeof httpServer.setCachedRemoteAudioDevices === 'function') {
+            httpServer.setCachedRemoteAudioDevices(payload?.devices || []);
+        }
+    });
+
+    ipcMain.on('report-crossfade-state', (event, payload) => {
+        if (httpServer && typeof httpServer.setCachedRemoteCrossfadeState === 'function') {
+            httpServer.setCachedRemoteCrossfadeState(!!payload?.enabled);
+        }
+    });
+
+    ipcMain.on('monitor-preview-state-changed', (event, payload) => {
+        if (httpServer && typeof httpServer.setCachedRemotePreviewState === 'function') {
+            httpServer.setCachedRemotePreviewState({
+                cueId: payload?.cueId || null,
+                active: !!payload?.active
+            });
+        }
     });
 }
 

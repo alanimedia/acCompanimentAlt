@@ -69,6 +69,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'seek-cue-by-id-from-main',
       'prepare-seek-cue-by-id-from-main',
       'set-cue-volume-by-id-from-main',
+      'preview-cue-on-monitor-from-main',
+      'stop-cue-monitor-preview-from-main',
+      'request-audio-devices-for-remote',
+      'set-crossfade-from-main',
       // Add other channels as needed
       'mixer-subscription-feedback',
       'playback-time-update-from-main',

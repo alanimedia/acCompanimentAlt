@@ -1,4 +1,5 @@
 import { calculateEffectiveTrimmedDurationSec } from './audioTimeUtils.js';
+import { resolveConfiguredCueVolume } from './audioPlaybackUtils.js';
 
 let ipcBindings = null;
 let formatTimeMMSS = null;
@@ -148,9 +149,12 @@ function sendPlaybackTimeUpdate(cueId, soundInstance, playingState, currentItemN
     const isCurrentCueUpdate = cueId.startsWith('current_cue_');
     const actualCueId = isCurrentCueUpdate ? cueId.replace('current_cue_', '') : cueId;
     
-    const volume = soundInstance && typeof soundInstance.volume === 'function'
+    const liveVolume = soundInstance && typeof soundInstance.volume === 'function'
         ? soundInstance.volume()
         : (playingState?.cue && typeof playingState.cue.volume === 'number' ? playingState.cue.volume : 0);
+    const configuredVolume = resolveConfiguredCueVolume(cue, playingState);
+
+    const isMeteringStatus = status === 'playing' || status === 'fading';
 
     const payload = {
         cueId: actualCueId,
@@ -169,8 +173,13 @@ function sendPlaybackTimeUpdate(cueId, soundInstance, playingState, currentItemN
         fadeTimeRemainingMs: calculateRemainingFadeTime(playingState),
         fadeTotalDurationMs: playingState ? playingState.fadeTotalDurationMs || 0 : 0,
         isCurrentCue: isCurrentCueUpdate, // Flag for Companion to know this is the priority cue
-        volume: Math.max(0, Math.min(1, Number(volume) || 0)),
-        isDucked: playingState ? playingState.isDucked || false : false
+        volume: Math.max(0, Math.min(1, Number(configuredVolume) || 0)),
+        outputVolume: Math.max(0, Math.min(1, Number(liveVolume) || 0)),
+        configuredVolume: Math.max(0, Math.min(1, Number(configuredVolume) || 0)),
+        isDucked: playingState ? playingState.isDucked || false : false,
+        meterPeak: isMeteringStatus ? (playingState?.lastMeterPeak ?? null) : null,
+        meterLevel: isMeteringStatus ? (playingState?.lastMeterLevel ?? null) : null,
+        meterDbfs: isMeteringStatus ? (playingState?.lastMeterDbfs ?? null) : null
     };
     
     // console.log(`[IPC_DEBUG] AudioPlaybackIPCEmitter sending to 'playback-time-update':`, {cueId, currentTimeSec, status});
@@ -179,12 +188,21 @@ function sendPlaybackTimeUpdate(cueId, soundInstance, playingState, currentItemN
 
 // Helper function to calculate remaining fade time
 function calculateRemainingFadeTime(playingState) {
-    if (playingState?.isFadingIn || playingState?.isFadingOut) {
-        if (playingState.fadeStartTime > 0 && playingState.fadeTotalDurationMs > 0) {
-            const elapsedFadeTime = Date.now() - playingState.fadeStartTime;
-            return Math.max(0, playingState.fadeTotalDurationMs - elapsedFadeTime);
-        }
+    if (!playingState?.isFadingIn && !playingState?.isFadingOut) {
+        return 0;
     }
+
+    if (playingState.fadeStartTime > 0 && playingState.fadeTotalDurationMs > 0) {
+        const elapsedFadeTime = Date.now() - playingState.fadeStartTime;
+        return Math.max(0, playingState.fadeTotalDurationMs - elapsedFadeTime);
+    }
+
+    // Crossfade fade-out may only populate fadeOutStartTime/fadeOutDuration
+    if (playingState.isFadingOut && playingState.fadeOutStartTime > 0 && playingState.fadeOutDuration > 0) {
+        const elapsedFadeTime = Date.now() - playingState.fadeOutStartTime;
+        return Math.max(0, playingState.fadeOutDuration - elapsedFadeTime);
+    }
+
     return 0;
 }
 

@@ -2,6 +2,7 @@
 // Crossfade functionality for audio playback management
 
 import { log } from './audioPlaybackLogger.js';
+import { resolveConfiguredCueVolume, ensurePlayingStateOriginalVolume } from './audioPlaybackUtils.js';
 
 // Crossfade functionality
 function handleCrossfadeToggle(cueId, getGlobalCueByIdRef, currentlyPlaying, toggleCue, _handleCrossfadeStart) {
@@ -25,7 +26,7 @@ function handleCrossfadeToggle(cueId, getGlobalCueByIdRef, currentlyPlaying, tog
     }
 }
 
-function _handleCrossfadeStart(newCueId, newCue, currentlyPlaying, getAppConfigFuncRef, cueGridAPIRef, stop, play, _playTargetItem) {
+function _handleCrossfadeStart(newCueId, newCue, currentlyPlaying, getAppConfigFuncRef, cueGridAPIRef, stop, play, _playTargetItem, getGlobalCueByIdRef) {
     console.log(`AudioPlaybackManager: Starting crossfade to cue ${newCueId}`);
     
     // Get crossfade duration from app config
@@ -44,10 +45,17 @@ function _handleCrossfadeStart(newCueId, newCue, currentlyPlaying, getAppConfigF
             if (playingState && playingState.sound) {
                 console.log(`AudioPlaybackManager: Fading out cue ${cueId} for crossfade (current vol: ${playingState.sound.volume()})`);
                 
-                // Mark as fading out for UI display
+                const outgoingCue = getGlobalCueByIdRef ? getGlobalCueByIdRef(cueId) : null;
+                ensurePlayingStateOriginalVolume(playingState, outgoingCue);
+                
+                // Mark as fading out for UI + remote IPC (uses fadeStartTime/fadeTotalDurationMs)
+                const fadeOutStartTime = Date.now();
                 playingState.isFadingOut = true;
-                playingState.fadeOutStartTime = Date.now();
+                playingState.isFadingIn = false;
+                playingState.fadeOutStartTime = fadeOutStartTime;
                 playingState.fadeOutDuration = crossfadeDuration;
+                playingState.fadeStartTime = fadeOutStartTime;
+                playingState.fadeTotalDurationMs = crossfadeDuration;
                 
                 // Start fade out with Howler
                 playingState.sound.fade(playingState.sound.volume(), 0, crossfadeDuration);
@@ -73,6 +81,10 @@ function _handleCrossfadeStart(newCueId, newCue, currentlyPlaying, getAppConfigF
                     if (remaining <= 0) {
                         clearInterval(fadeOutInterval);
                         playingState.isFadingOut = false;
+                        playingState.fadeStartTime = 0;
+                        playingState.fadeTotalDurationMs = 0;
+                        playingState.fadeOutStartTime = 0;
+                        playingState.fadeOutDuration = 0;
                     }
                 }, 100); // Update every 100ms for smooth countdown
                 
@@ -103,11 +115,13 @@ function _handleCrossfadeStart(newCueId, newCue, currentlyPlaying, getAppConfigF
     }
     
     // Mark the new cue for crossfade-in BEFORE starting it
+    const latestIncomingCue = getGlobalCueByIdRef ? (getGlobalCueByIdRef(newCueId) || newCue) : newCue;
+    const configuredIncomingVolume = resolveConfiguredCueVolume(latestIncomingCue);
     const crossfadeInState = {
         isCrossfadeIn: true,
         crossfadeStartTime: Date.now(),
         crossfadeDuration: crossfadeDuration,
-        targetVolume: newCue.volume !== undefined ? newCue.volume : 1.0
+        targetVolume: configuredIncomingVolume
     };
     
     // Store crossfade info for the playback instance handler to use

@@ -118,6 +118,158 @@
     color: var(--text-color);
 }
 
+.sidebar-content .audio-output-test-panel {
+    margin-top: 8px;
+    padding: 10px;
+    border: 1px solid var(--button-secondary-border, #555);
+    border-radius: var(--border-radius, 4px);
+    background: rgba(0, 0, 0, 0.18);
+}
+
+.sidebar-content .audio-output-test-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    width: 100%;
+}
+
+.sidebar-content .audio-output-test-controls .btn-compact {
+    width: auto;
+    min-width: 56px;
+    margin-top: 0;
+    flex: 0 0 auto;
+}
+
+.sidebar-content .btn-compact {
+    padding: 6px 12px;
+    font-size: 0.82em;
+}
+
+.sidebar-content .audio-output-volume-label {
+    display: inline-block;
+    margin: 0;
+    flex: 0 0 auto;
+    font-size: 0.78em;
+    font-weight: 600;
+    color: var(--text-secondary-color, #aaa);
+}
+
+.sidebar-content .audio-output-volume-slider {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 72px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    accent-color: #3d8bfd;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+}
+
+.sidebar-content .audio-output-volume-slider::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.32);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.sidebar-content .audio-output-volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -5px;
+    border-radius: 50%;
+    background: #3d8bfd;
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.45);
+}
+
+.sidebar-content .audio-output-volume-slider::-moz-range-track {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.32);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.sidebar-content .audio-output-volume-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #3d8bfd;
+    border: 1px solid rgba(255, 255, 255, 0.85);
+}
+
+.sidebar-content .audio-output-volume-value {
+    flex: 0 0 34px;
+    font-size: 0.75em;
+    color: var(--text-secondary-color, #bbb);
+    text-align: right;
+}
+
+.sidebar-content .audio-output-vu-meter {
+    position: relative;
+    width: 100%;
+    height: 18px;
+    border: 1px inset rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+    overflow: hidden;
+    background: #101010;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+.sidebar-content .audio-output-vu-zones {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to right,
+        #1faa59 0%,
+        #1faa59 62%,
+        #d4a017 62%,
+        #d4a017 84%,
+        #d64545 84%,
+        #d64545 100%
+    );
+}
+
+.sidebar-content .audio-output-vu-mask {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    background: rgba(8, 8, 8, 0.88);
+    transition: width 45ms linear;
+    pointer-events: none;
+}
+
+.sidebar-content .audio-output-lufs-row,
+.sidebar-content .audio-output-dbfs-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+    font-size: 0.72em;
+    color: var(--text-secondary-color, #bbb);
+}
+
+.sidebar-content .audio-output-lufs-value,
+.sidebar-content .audio-output-meter-readout-value {
+    font-variant-numeric: tabular-nums;
+    color: #d8f6ff;
+}
+
+.sidebar-content .audio-output-meter-readout-label {
+    color: var(--text-secondary-color, #bbb);
+}
+
+.sidebar-content #configMainOutputTestBtn.active,
+.sidebar-content #configMonitorOutputTestBtn.active {
+    background: var(--button-primary-bg, #007bff);
+    color: #fff;
+}
+
 .sidebar-content .audio-file-path-block {
     width: 100%;
     margin-bottom: 4px;
@@ -174,7 +326,7 @@
 }
 
 
-.sidebar-content input[type="range"] {
+.sidebar-content input[type="range"]:not(.audio-output-volume-slider) {
     width: calc(70% - 10px); /* Adjust as needed */
     vertical-align: middle;
 }
@@ -326,4 +478,119 @@
     /* Mac M1 rendering fixes */
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
+}
+
+/* App configuration sidebar sections */
+.config-sidebar {
+    padding-right: 4px;
+}
+
+.config-sidebar-header {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.config-sidebar-header h2 {
+    margin: 0 0 6px;
+    font-size: 1.15em;
+    color: #e8e8e8;
+}
+
+.config-sidebar-intro {
+    margin: 0;
+    font-size: 0.78em;
+    line-height: 1.4;
+    color: #9aa0a6;
+}
+
+.config-section {
+    margin-bottom: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.18);
+    overflow: hidden;
+}
+
+.config-section-title {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    font-size: 0.8em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #fde68a;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.28) 0%, rgba(30, 30, 30, 0.4) 100%);
+    border-left: 3px solid #f59e0b;
+}
+
+.config-section-title::-webkit-details-marker {
+    display: none;
+}
+
+.config-section-title::before {
+    content: '▸';
+    display: inline-block;
+    margin-right: 8px;
+    font-size: 0.9em;
+    color: #fbbf24;
+    transition: transform 0.15s ease;
+}
+
+.config-section[open] .config-section-title {
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.38) 0%, rgba(30, 30, 30, 0.25) 100%);
+    color: #fff7d6;
+}
+
+.config-section[open] .config-section-title::before {
+    transform: rotate(90deg);
+}
+
+.config-section-body {
+    padding: 4px 12px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.config-section-body .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.config-section-lead {
+    margin: 4px 0 10px;
+}
+
+.config-field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.config-field-grid .form-group {
+    margin-bottom: 8px;
+}
+
+.config-checkbox-row label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-weight: normal;
+    line-height: 1.35;
+    cursor: pointer;
+}
+
+.config-checkbox-row label input[type="checkbox"] {
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.config-checkbox-row .small-text {
+    margin: 4px 0 0 24px;
+}
+
+.config-section .audio-output-test-panel {
+    background: rgba(0, 0, 0, 0.22);
 } 

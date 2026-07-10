@@ -12,6 +12,7 @@ import {
     setRouteShowPlaybackToMonitor,
     getMonitorOutputDeviceId
 } from './audioOutputRouting.js';
+import { ensureMainOutputAnalyser } from './audioOutputDiagnostics.js';
 
 // Local function to get cue by ID using cueStore directly
 function getGlobalCueById(cueId) {
@@ -74,6 +75,8 @@ async function init(cs, ipcRendererBindingsInstance, cgAPI, sbAPI) {
             getPreloadedSound: getPreloadedSound // Pass preloaded sound accessor
         });
         log.info('AudioController: playbackManagerModule.init() called successfully.');
+
+        ensureMainOutputAnalyser();
 
         // Now that playbackManagerModule is initialized, pass the UI refs if they were set beforehand
         if (localCueGridAPI && localSidebarsAPI && typeof playbackManagerModule.setUIRefs === 'function') {

@@ -29,7 +29,7 @@ function initialize(application, mainWin, cueMgrModule, appCfgManager, wsMgr, ws
             // Check if mainWindow is valid and not destroyed before sending IPC
             try {
                 if (mainWin && !mainWin.isDestroyed() && mainWin.webContents && !mainWin.webContents.isDestroyed()) {
-                    mainWin.webContents.send('app-config-updated', newConfig);
+                    mainWin.webContents.send('app-config-updated-from-main', newConfig);
                 } else {
                     logger.debug("IPC_HANDLERS: MainWindow is destroyed or unavailable, skipping config broadcast.");
                 }

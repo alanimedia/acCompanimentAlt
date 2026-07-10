@@ -27,98 +27,159 @@
                 <button id="configToggleBtn" class="btn btn-icon-text" title="Toggle Configuration Sidebar">
                     <img src="../../assets/icons/settings.png" alt="Settings" class="btn-icon">
                 </button>
-                <div class="sidebar-content">
-                    <h2>App Configuration</h2>
-                    <div class="form-group">
-                        <label for="configAudioOutputDevice">Show / Main Output:</label>
-                        <select id="configAudioOutputDevice" class="styled-select"></select>
-                        <p class="small-text">Cue triggers and live playback are sent here (FOH / main interface).</p>
-                    </div>
-                    <div class="form-group">
-                        <label for="configAudioMonitorOutputDevice">Monitor / Preview Output:</label>
-                        <select id="configAudioMonitorOutputDevice" class="styled-select"></select>
-                        <p class="small-text">Waveform preview in the properties sidebar and expanded editor uses this output.</p>
-                    </div>
-                    <div class="form-group">
-                        <label for="configRouteShowPlaybackToMonitor">
-                            <input type="checkbox" id="configRouteShowPlaybackToMonitor">
-                            Also route live cue playback to monitor output
-                        </label>
-                        <p class="small-text">When enabled, triggered cues play on both outputs (useful for headphones or a second interface).</p>
-                    </div>
+                <div class="sidebar-content config-sidebar">
+                    <header class="config-sidebar-header">
+                        <h2>Settings</h2>
+                        <p class="config-sidebar-intro">App-wide defaults and audio routing. Changes save automatically.</p>
+                    </header>
 
-                    <h3>Default Cue Properties</h3>
-                    <p class="small-text">These values are applied when new cues are created.</p>
-                    <div class="form-group">
-                        <label for="defaultFadeIn">Fade In (ms):</label>
-                        <input type="number" id="defaultFadeIn" name="defaultFadeIn" value="0" min="0" step="50">
-                    </div>
-                    <div class="form-group">
-                        <label for="defaultFadeOut">Fade Out (ms):</label>
-                        <input type="number" id="defaultFadeOut" name="defaultFadeOut" value="0" min="0" step="50">
-                    </div>
-                    <div class="form-group">
-                        <label for="defaultLoop">Loop:</label>
-                        <input type="checkbox" id="defaultLoop" name="defaultLoop">
-                    </div>
-                    <div class="form-group">
-                        <label for="retriggerBehavior">Default retrigger behavior</label>
-                        <p class="small-text">Applies when a cue button is pressed while that cue is already playing or paused. Every cue button shows its effective retrigger icon.</p>
-                        <select id="retriggerBehavior"></select>
-                        <p id="retriggerBehaviorHelp" class="small-text retrigger-help"></p>
-                        <details class="retrigger-legend">
-                            <summary>Retrigger behavior legend</summary>
-                            <div id="globalRetriggerLegend" class="retrigger-legend-body"></div>
-                        </details>
-                    </div>
-
-                    <h3>Stop All Behavior</h3>
-                    <div class="form-group">
-                        <label for="defaultStopAllBehavior">Stop All Behavior:</label>
-                        <select id="defaultStopAllBehavior">
-                            <option value="stop">Stop</option>
-                            <option value="fade_out_and_stop">Fade Out and Stop</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="defaultStopAllFadeOutGroup">
-                        <label for="defaultStopAllFadeOut">Stop All Fade Out Time (ms):</label>
-                        <input type="number" id="defaultStopAllFadeOut" name="defaultStopAllFadeOut" value="1500" min="0" step="100">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="crossfadeTime">Crossfade Time (ms):</label>
-                        <input type="number" id="crossfadeTime" name="crossfadeTime" value="2000" min="100" max="10000" step="100" title="Duration for crossfading between cues when crossfade mode is enabled">
-                    </div>
-
-                    <h3>Main Display</h3>
-                    <div class="form-group">
-                        <label for="configMainWaveformEnabled">Show waveform below cue grid:</label>
-                        <input type="checkbox" id="configMainWaveformEnabled" name="configMainWaveformEnabled" checked>
-                    </div>
-                    <div class="form-group">
-                        <label for="configDefaultShowButtonWaveform">Show waveform on cue buttons (default):</label>
-                        <input type="checkbox" id="configDefaultShowButtonWaveform" name="configDefaultShowButtonWaveform">
-                    </div>
-                    <p class="small-text">Drag the top edge of the waveform panel to resize it. Per-cue overrides are in Cue Properties.</p>
-
-                    <h3>HTTP Remote Control</h3>
-                    <div class="form-group">
-                        <label for="configHttpRemoteEnabled">Enable HTTP Remote:</label>
-                        <input type="checkbox" id="configHttpRemoteEnabled" name="configHttpRemoteEnabled" checked>
-                    </div>
-                    <div class="form-group" id="httpRemotePortGroup">
-                        <label for="configHttpRemotePort">Remote Control Port:</label>
-                        <input type="number" id="configHttpRemotePort" name="configHttpRemotePort" value="3000" min="1" max="65535">
-                    </div>
-                    <div class="form-group" id="httpRemoteLinksGroup">
-                        <label>Remote Access Links:</label>
-                        <div id="httpRemoteLinksDiv" class="remote-links-container">
-                            <!-- Links will be populated by JavaScript -->
+                    <details class="config-section">
+                        <summary class="config-section-title">Audio Outputs</summary>
+                        <div class="config-section-body">
+                            <div class="form-group">
+                                <label for="configAudioOutputDevice">Show / Main Output</label>
+                                <select id="configAudioOutputDevice" class="styled-select"></select>
+                                <p class="small-text">Cue triggers and live playback (FOH / main interface).</p>
+                                <div class="audio-output-test-panel" data-output="main">
+                                    <div class="audio-output-test-controls">
+                                        <button type="button" id="configMainOutputTestBtn" class="btn btn-secondary btn-compact">Test</button>
+                                        <label class="audio-output-volume-label" for="configMainOutputVolume">Vol</label>
+                                        <input type="range" id="configMainOutputVolume" min="0" max="100" value="70" class="audio-output-volume-slider">
+                                        <span id="configMainOutputVolumeValue" class="audio-output-volume-value">70%</span>
+                                    </div>
+                                    <div class="audio-output-vu-meter" aria-hidden="true">
+                                        <div class="audio-output-vu-zones"></div>
+                                        <div class="audio-output-vu-mask" id="configMainOutputMeter"></div>
+                                    </div>
+                                    <div class="audio-output-dbfs-row">
+                                        <span class="audio-output-meter-readout-label">Level</span>
+                                        <span id="configMainOutputDbfs" class="audio-output-meter-readout-value">−∞ dBFS</span>
+                                    </div>
+                                    <div class="audio-output-lufs-row">
+                                        <span class="audio-output-meter-readout-label">Loudness</span>
+                                        <span id="configMainOutputLufs" class="audio-output-meter-readout-value">— LUFS</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="configAudioMonitorOutputDevice">Monitor / Preview Output</label>
+                                <select id="configAudioMonitorOutputDevice" class="styled-select"></select>
+                                <p class="small-text">Waveform preview, cue preview buttons, and optional live mirror.</p>
+                                <div class="audio-output-test-panel" data-output="monitor">
+                                    <div class="audio-output-test-controls">
+                                        <button type="button" id="configMonitorOutputTestBtn" class="btn btn-secondary btn-compact">Test</button>
+                                        <label class="audio-output-volume-label" for="configMonitorOutputVolume">Vol</label>
+                                        <input type="range" id="configMonitorOutputVolume" min="0" max="100" value="70" class="audio-output-volume-slider">
+                                        <span id="configMonitorOutputVolumeValue" class="audio-output-volume-value">70%</span>
+                                    </div>
+                                    <div class="audio-output-vu-meter" aria-hidden="true">
+                                        <div class="audio-output-vu-zones"></div>
+                                        <div class="audio-output-vu-mask" id="configMonitorOutputMeter"></div>
+                                    </div>
+                                    <div class="audio-output-dbfs-row">
+                                        <span class="audio-output-meter-readout-label">Level</span>
+                                        <span id="configMonitorOutputDbfs" class="audio-output-meter-readout-value">−∞ dBFS</span>
+                                    </div>
+                                    <div class="audio-output-lufs-row">
+                                        <span class="audio-output-meter-readout-label">Loudness</span>
+                                        <span id="configMonitorOutputLufs" class="audio-output-meter-readout-value">— LUFS</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group config-checkbox-row">
+                                <label for="configRouteShowPlaybackToMonitor">
+                                    <input type="checkbox" id="configRouteShowPlaybackToMonitor">
+                                    Mirror live playback to monitor output
+                                </label>
+                                <p class="small-text">Triggered cues play on both outputs (headphones / second interface).</p>
+                            </div>
                         </div>
-                    </div>
+                    </details>
 
+                    <details class="config-section">
+                        <summary class="config-section-title">New Cue Defaults</summary>
+                        <div class="config-section-body">
+                            <p class="small-text config-section-lead">Applied when new cues are created.</p>
+                            <div class="config-field-grid">
+                                <div class="form-group">
+                                    <label for="defaultFadeIn">Fade in (ms)</label>
+                                    <input type="number" id="defaultFadeIn" name="defaultFadeIn" value="0" min="0" step="50">
+                                </div>
+                                <div class="form-group">
+                                    <label for="defaultFadeOut">Fade out (ms)</label>
+                                    <input type="number" id="defaultFadeOut" name="defaultFadeOut" value="0" min="0" step="50">
+                                </div>
+                            </div>
+                            <div class="form-group config-checkbox-row">
+                                <label for="defaultLoop"><input type="checkbox" id="defaultLoop" name="defaultLoop"> Loop single-file cues by default</label>
+                            </div>
+                            <div class="form-group">
+                                <label for="retriggerBehavior">Retrigger behavior</label>
+                                <p class="small-text">When a cue is pressed while already playing or paused.</p>
+                                <select id="retriggerBehavior"></select>
+                                <p id="retriggerBehaviorHelp" class="small-text retrigger-help"></p>
+                                <details class="retrigger-legend">
+                                    <summary>Retrigger legend</summary>
+                                    <div id="globalRetriggerLegend" class="retrigger-legend-body"></div>
+                                </details>
+                            </div>
+                        </div>
+                    </details>
 
-                    
+                    <details class="config-section">
+                        <summary class="config-section-title">Playback &amp; Stop All</summary>
+                        <div class="config-section-body">
+                            <div class="form-group">
+                                <label for="defaultStopAllBehavior">Stop All behavior</label>
+                                <select id="defaultStopAllBehavior">
+                                    <option value="stop">Stop</option>
+                                    <option value="fade_out_and_stop">Fade out and stop</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="defaultStopAllFadeOutGroup">
+                                <label for="defaultStopAllFadeOut">Stop All fade out (ms)</label>
+                                <input type="number" id="defaultStopAllFadeOut" name="defaultStopAllFadeOut" value="1500" min="0" step="100">
+                            </div>
+                            <div class="form-group">
+                                <label for="crossfadeTime">Crossfade time (ms)</label>
+                                <input type="number" id="crossfadeTime" name="crossfadeTime" value="2000" min="100" max="10000" step="100" title="Duration for crossfading between cues when crossfade mode is enabled">
+                                <p class="small-text">Used when XFADE mode is enabled on the main toolbar.</p>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="config-section">
+                        <summary class="config-section-title">Display &amp; Waveforms</summary>
+                        <div class="config-section-body">
+                            <div class="form-group config-checkbox-row">
+                                <label for="configMainWaveformEnabled"><input type="checkbox" id="configMainWaveformEnabled" name="configMainWaveformEnabled" checked> Show waveform panel below cue grid</label>
+                            </div>
+                            <div class="form-group config-checkbox-row">
+                                <label for="configDefaultShowButtonWaveform"><input type="checkbox" id="configDefaultShowButtonWaveform" name="configDefaultShowButtonWaveform"> Show waveform on cue buttons (default)</label>
+                            </div>
+                            <div class="form-group config-checkbox-row">
+                                <label for="configDefaultShowCueMeter"><input type="checkbox" id="configDefaultShowCueMeter" name="configDefaultShowCueMeter" checked> Show level meter on cue cards while playing (default)</label>
+                            </div>
+                            <p class="small-text">Drag the top edge of the waveform panel to resize. Per-cue overrides are in Cue Properties.</p>
+                        </div>
+                    </details>
+
+                    <details class="config-section">
+                        <summary class="config-section-title">Remote Control</summary>
+                        <div class="config-section-body">
+                            <div class="form-group config-checkbox-row">
+                                <label for="configHttpRemoteEnabled"><input type="checkbox" id="configHttpRemoteEnabled" name="configHttpRemoteEnabled" checked> Enable HTTP remote</label>
+                            </div>
+                            <div class="form-group" id="httpRemotePortGroup">
+                                <label for="configHttpRemotePort">Remote port</label>
+                                <input type="number" id="configHttpRemotePort" name="configHttpRemotePort" value="3000" min="1" max="65535">
+                            </div>
+                            <div class="form-group" id="httpRemoteLinksGroup">
+                                <label>Access links</label>
+                                <div id="httpRemoteLinksDiv" class="remote-links-container"></div>
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </div>
             
@@ -134,6 +195,18 @@
                             <button type="button" id="modeEditBtn" class="mode-btn mode-btn-active-edit" title="Edit mode — arrange and edit cues">Edit</button>
                         </div>
                         <div id="globalControls" class="global-controls">
+                            <div class="header-master-volume" id="headerMasterVolumeWrap" title="Main show output volume">
+                                <label for="headerMainOutputVolume" class="header-volume-label">Master</label>
+                                <input type="range" id="headerMainOutputVolume" min="0" max="100" step="1" value="100" class="header-volume-slider" aria-label="Master output volume">
+                                <span id="headerMainOutputVolumeValue" class="header-volume-value">100%</span>
+                            </div>
+                            <div class="header-master-meter" id="headerMasterMeterWrap" title="Main output level">
+                                <div class="header-output-vu" aria-hidden="true">
+                                    <div class="header-output-vu-zones"></div>
+                                    <div class="header-output-vu-mask" id="headerMainOutputMeter"></div>
+                                </div>
+                                <span id="headerMainOutputDbfs" class="header-output-dbfs">−∞</span>
+                            </div>
                             <button id="crossfadeToggleBtn" class="btn crossfade-disabled" title="Toggle Crossfade Mode - Click to Enable">
                                 <img id="crossfadeToggleIcon" src="../../assets/icons/crossfade.png" alt="Crossfade" class="btn-icon">
                                 <span class="btn-label">XFADE</span>
@@ -198,6 +271,15 @@
                             <div class="button-color-recent-label">Recent custom</div>
                             <div id="propButtonColorRecent" class="button-color-swatches button-color-recent" aria-label="Recent custom colors"></div>
                         </div>
+                    </div>
+                    <div class="form-group properties-single-only" id="propShowCueMeterGroup">
+                        <label for="propShowCueMeterMode">Level meter:</label>
+                        <select id="propShowCueMeterMode" name="propShowCueMeterMode">
+                            <option value="default">Use app default</option>
+                            <option value="show">Always show when playing</option>
+                            <option value="hide">Always hide</option>
+                        </select>
+                        <p class="small-text">dBFS meter on the cue card (visible only while the cue is playing).</p>
                     </div>
                     <div class="form-group properties-single-only" id="propShowButtonWaveformGroup">
                         <label for="propShowButtonWaveformMode">Button waveform:</label>

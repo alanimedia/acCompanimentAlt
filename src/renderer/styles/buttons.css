@@ -67,7 +67,7 @@ button:active, .btn:active {
 }
 
 /* Sidebar action buttons */
-.sidebar-content button:not(.prop-replace-audio-btn) {
+.sidebar-content button:not(.prop-replace-audio-btn):not(.btn-compact) {
     /* General button styles apply here */
     width: 100%;
     margin-top: 5px;

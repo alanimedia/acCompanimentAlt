@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.8.0
+
+### Added
+- Post-fader **output level meter** on the Electron header (vertical VU + dBFS) with master volume slider
+- **Per-cue level meters** on cue buttons (zone-style VU, dBFS, peak-hold) visible only while playing
+- Global **Show cue meter** default and per-cue **Show cue meter** override in properties and web remote
+- `audioOutputDiagnostics.js`, `audioLoudnessMeter.js`, `cueMeterDisplay.js`, and `cueMeterVisibility.js` for meter rendering and loudness
+- **Crossfade mode** toggle on web remote with state sync to Electron
+- Remote header **Master Vol** vertical slider and aligned vertical output VU on iPad-friendly playback strip
+- Remote **fade-out / fade-in** countdown and orange styling during crossfade and normal fades
+- **Configured vs output volume** separation so per-cue volume persists after fade-out and crossfade
+- Cue **preview** button support on playback cards, edit cards, and web remote
+- `cueMonitorPreview.js` and `cuePreviewButton.js` for monitor/preview routing
+
+### Changed
+- Brighter per-cue volume sliders on cue cards and web remote waveform lanes
+- Web remote header layout: single-row playback strip (Master Vol + VU, XFADE, WAVE, Stop) tuned for iPad
+- IPC playback updates send `configuredVolume` and `outputVolume` separately for accurate remote UI
+- Crossfade fade-out/fade-in state forwarded to web remote via standard fade IPC fields
+- Main waveform panel volume slider uses configured cue level, not live fade level
+
+### Fixed
+- Output meter bar scale mismatch (linear mask vs dBFS zones) causing inaccurate readings
+- Double volume scaling on playback meters (analyser is already post–master-gain)
+- LUFS readout during test tone using peak-derived loudness
+- Crossfade fade display missing on web remote (outgoing cue orange countdown)
+- Per-cue volume resetting to 100% after fade-out or crossfade
+- Web remote waveform lane volume slider fighting playback sync on iPad touch
+- Duplicate `normalizeShowButtonWaveformOverride` in `remoteEditUtils.js` causing startup crash
+
 ## 1.7.1
 
 ### Added

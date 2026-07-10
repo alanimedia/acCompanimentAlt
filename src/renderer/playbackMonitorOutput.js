@@ -5,11 +5,53 @@
 import {
     applySinkIdToHowl,
     getMonitorOutputDeviceId,
-    shouldUseSeparateMonitorOutput
+    shouldUseSeparateMonitorOutput,
+    registerMonitorHowl,
+    applyMonitorVolumeMultiplier
 } from './audioOutputRouting.js';
+import {
+    createHowlMonitorLevelSource,
+    registerMonitorLevelSource
+} from './audioOutputDiagnostics.js';
+
+const monitorLevelUnregisters = new WeakMap();
+const monitorHowlUnregisters = new WeakMap();
+
+function trackMonitorLevel(playingState, howl) {
+    const previousUnregister = monitorLevelUnregisters.get(playingState);
+    if (previousUnregister) previousUnregister();
+
+    const previousHowlUnregister = monitorHowlUnregisters.get(playingState);
+    if (previousHowlUnregister) previousHowlUnregister();
+
+    if (!howl) return;
+    const baseVolume = typeof howl._acBaseVolume === 'number'
+        ? howl._acBaseVolume
+        : (typeof howl.volume === 'function' ? howl.volume() : 1);
+    monitorHowlUnregisters.set(playingState, registerMonitorHowl(howl, baseVolume));
+    const unregister = registerMonitorLevelSource(
+        `monitor-mirror-${playingState?.cue?.id || Math.random()}`,
+        createHowlMonitorLevelSource(howl)
+    );
+    monitorLevelUnregisters.set(playingState, unregister);
+}
+
+function clearMonitorLevel(playingState) {
+    const unregister = monitorLevelUnregisters.get(playingState);
+    if (unregister) unregister();
+    monitorLevelUnregisters.delete(playingState);
+
+    const howlUnregister = monitorHowlUnregisters.get(playingState);
+    if (howlUnregister) howlUnregister();
+    monitorHowlUnregisters.delete(playingState);
+}
 
 export function disposeMonitorSound(playingState) {
-    if (!playingState?.monitorSound) return;
+    if (!playingState?.monitorSound) {
+        clearMonitorLevel(playingState);
+        return;
+    }
+    clearMonitorLevel(playingState);
     try {
         playingState.monitorSound.stop();
         playingState.monitorSound.unload();
@@ -20,22 +62,26 @@ export function disposeMonitorSound(playingState) {
 }
 
 function createMonitorSound(filePath, volume) {
+    const baseVolume = volume ?? 1;
     const monitorSound = new Howl({
         src: [filePath],
         html5: true,
-        volume: volume ?? 1,
+        volume: applyMonitorVolumeMultiplier(baseVolume),
         preload: true
     });
-    monitorSound.once('load', () => {
-        applySinkIdToHowl(monitorSound, getMonitorOutputDeviceId());
-    });
+    monitorSound._acBaseVolume = baseVolume;
+    const applySink = () => applySinkIdToHowl(monitorSound, getMonitorOutputDeviceId());
+    monitorSound.once('load', applySink);
+    monitorSound.on('play', applySink);
     return monitorSound;
 }
 
 export function attachMonitorToPlayingState(playingState, filePath, volume, mainDeviceId) {
     disposeMonitorSound(playingState);
     if (!shouldUseSeparateMonitorOutput(mainDeviceId)) return;
-    playingState.monitorSound = createMonitorSound(filePath, volume);
+    const monitorSound = createMonitorSound(filePath, volume);
+    playingState.monitorSound = monitorSound;
+    trackMonitorLevel(playingState, monitorSound);
 }
 
 export function syncMonitorPlay(playingState, mainSound) {
@@ -71,5 +117,11 @@ export function syncMonitorSeek(playingState, seekTime) {
 
 export function syncMonitorVolume(playingState, volume) {
     if (!playingState?.monitorSound) return;
-    playingState.monitorSound.volume(volume);
+    const baseVolume = clampVolume(volume);
+    playingState.monitorSound._acBaseVolume = baseVolume;
+    playingState.monitorSound.volume(applyMonitorVolumeMultiplier(baseVolume));
+}
+
+function clampVolume(value) {
+    return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 }

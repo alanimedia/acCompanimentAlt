@@ -166,6 +166,9 @@ export function _cleanupSoundInstance(cueId, state, options = {}, context) {
         const sound = state.sound;
         
         try {
+            if (typeof state.originalVolume === 'number' && typeof sound.volume === 'function') {
+                sound.volume(state.originalVolume);
+            }
             // Stop the sound if it's playing
             if (sound.playing()) {
                 log.verbose(`_cleanupSoundInstance: Stopping playing sound for ${cueId}`);

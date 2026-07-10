@@ -10,6 +10,8 @@ import {
     syncMonitorPause,
     syncMonitorStop
 } from './playbackMonitorOutput.js';
+import { ensureMainOutputAnalyser } from './audioOutputDiagnostics.js';
+import { resolveConfiguredCueVolume, ensurePlayingStateOriginalVolume } from './audioPlaybackUtils.js';
 
 /**
  * Create onload event handler
@@ -110,18 +112,28 @@ export function createOnloadHandler(cueId, sound, playingState, filePath, curren
         const isCrossfadeIn = playingState.crossfadeInfo && playingState.crossfadeInfo.isCrossfadeIn;
         let fadeInDuration;
         let fadeInTargetVolume;
+        const playlistItem = playingState.isPlaylist && typeof actualItemIndexInOriginalList === 'number'
+            ? playingState.originalPlaylistItems?.[actualItemIndexInOriginalList]
+            : null;
+        const latestCue = (audioControllerContext.getGlobalCueByIdRef && typeof audioControllerContext.getGlobalCueByIdRef === 'function')
+            ? (audioControllerContext.getGlobalCueByIdRef(cueId) || mainCue)
+            : mainCue;
+        const configuredVolume = resolveConfiguredCueVolume(latestCue, playingState, playlistItem);
+        ensurePlayingStateOriginalVolume(playingState, latestCue, playlistItem);
+        playingState.originalVolumeBeforeFadeIn = configuredVolume;
         
         if (isCrossfadeIn && playingState.crossfadeInfo) {
-            // Use crossfade duration and target volume from crossfade info
+            // Use crossfade duration and configured target volume (not live output level)
             fadeInDuration = playingState.crossfadeInfo.crossfadeDuration || 2000;
-            fadeInTargetVolume = playingState.crossfadeInfo.targetVolume || 1;
+            fadeInTargetVolume = playingState.crossfadeInfo.targetVolume ?? configuredVolume;
+            playingState.crossfadeInfo.targetVolume = fadeInTargetVolume;
             console.log(`PlaybackEventHandlers: Crossfade-in detected - applying ${fadeInDuration}ms crossfade to volume ${fadeInTargetVolume}`);
         } else {
             // Use normal cue fade-in settings
             fadeInDuration = playingState.isPlaylist ? 
                            (playingState.originalPlaylistItems[actualItemIndexInOriginalList].fadeInTime !== undefined ? playingState.originalPlaylistItems[actualItemIndexInOriginalList].fadeInTime : (mainCue.fadeInTime !== undefined ? mainCue.fadeInTime : 0)) :
                            (mainCue.fadeInTime !== undefined ? mainCue.fadeInTime : 0);
-            fadeInTargetVolume = sound.volume(); // Use current volume as target
+            fadeInTargetVolume = configuredVolume;
         }
         
         if (fadeInDuration > 0 && !playingState.isPaused) {
@@ -156,6 +168,7 @@ export function createOnloadHandler(cueId, sound, playingState, filePath, curren
 export function createOnplayHandler(cueId, sound, playingState, filePath, currentItemNameForEvents, actualItemIndexInOriginalList, isResumeForSeekAndFade, mainCue, audioControllerContext) {
     return () => {
         console.log(`[TIME_UPDATE_DEBUG ${cueId}] onplay: Fired for ${filePath}. isResumeForSeekAndFade: ${isResumeForSeekAndFade}`);
+        ensureMainOutputAnalyser();
         
         // === Enhanced race condition protection START ===
         let currentGlobalState = null;

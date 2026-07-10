@@ -34,7 +34,7 @@ export function toggleCue(cueIdToToggle, fromCompanion = false, retriggerBehavio
     if (isCrossfadeMode && !playingState) {
         // Crossfade mode: stop all other playing cues and start this one
         console.log(`🎵 AudioPlaybackManager: CROSSFADE MODE ACTIVATED - starting crossfade to cue ${cueIdToToggle}`);
-        _handleCrossfadeStart(cueIdToToggle, cue, currentlyPlaying, getAppConfigFuncRef, context.cueGridAPIRef, stop, play, _playTargetItem);
+        _handleCrossfadeStart(cueIdToToggle, cue, currentlyPlaying, getAppConfigFuncRef, context.cueGridAPIRef, stop, play, _playTargetItem, getGlobalCueByIdRef);
         return;
     } else if (isCrossfadeMode && playingState) {
         console.log(`AudioPlaybackManager: Crossfade mode enabled but cue ${cueIdToToggle} is already playing - using normal retrigger behavior`);

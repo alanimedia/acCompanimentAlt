@@ -251,12 +251,8 @@ function bindCoreEventListeners() {
 
     if (crossfadeToggleBtn) {
         crossfadeToggleBtn.addEventListener('click', () => {
-            crossfadeEnabled = !crossfadeEnabled;
-            updateCrossfadeButtonState();
-            console.log('UI: Crossfade mode toggled to:', crossfadeEnabled);
-            console.log('UI: window.ui.isCrossfadeEnabled now returns:', window.ui && window.ui.isCrossfadeEnabled && window.ui.isCrossfadeEnabled());
+            setCrossfadeEnabled(!crossfadeEnabled);
         });
-        // Initialize the button state
         updateCrossfadeButtonState();
         console.log('UI: Crossfade button initialized. Initial state:', crossfadeEnabled);
     } else {
@@ -402,6 +398,9 @@ function applyAppConfiguration(newConfig) {
             cueGrid.renderCues();
         }
     }
+    if (cueGrid && typeof cueGrid.refreshAllCueMeterVisibility === 'function') {
+        cueGrid.refreshAllCueMeterVisibility();
+    }
     if (cueGrid && typeof cueGrid.refreshAllCueBadges === 'function') {
         cueGrid.refreshAllCueBadges();
     }
@@ -427,8 +426,15 @@ function updateCrossfadeButtonState() {
     }
 }
 
+function setCrossfadeEnabled(enabled, { broadcast = true } = {}) {
+    crossfadeEnabled = !!enabled;
+    updateCrossfadeButtonState();
+    if (broadcast && window.electronAPI?.send) {
+        window.electronAPI.send('report-crossfade-state', { enabled: crossfadeEnabled });
+    }
+}
+
 function isCrossfadeEnabled() {
-    console.log('UI: isCrossfadeEnabled() called, returning:', crossfadeEnabled);
     return crossfadeEnabled;
 }
 
@@ -629,7 +635,9 @@ function updateCueButtonTimeDisplay(data) {
             durationFormatted: data.totalDurationFormatted || '00:00',
             remainingTime: data.remainingTimeSec || 0,
             remainingTimeFormatted: data.remainingTimeFormatted || '00:00',
-            volume: typeof data.volume === 'number' ? data.volume : undefined,
+            volume: typeof data.outputVolume === 'number'
+                ? data.outputVolume
+                : (typeof data.volume === 'number' ? data.volume : undefined),
             status: data.status || '',
             isDucked: data.isDucked || false
         };
@@ -684,6 +692,7 @@ export {
     refreshCueGrid, // Export the new function
     applyAppConfiguration, // Export the new function
     isCrossfadeEnabled, // Export crossfade state
+    setCrossfadeEnabled,
 
     updateCueButtonTimeDisplay, // Export the new function
     getCurrentAppMode, // Export for other modules if they need to know mode without ` / ~ hold override

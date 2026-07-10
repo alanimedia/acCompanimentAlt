@@ -25,6 +25,21 @@ import {
 } from './cueGridSections.js';
 import { resolveEffectiveRetriggerBehavior } from '../retriggerBehaviorUtils.js';
 import { ensureCueIndicatorStrip, updateCueIndicatorStrip } from '../cueIndicatorBadges.js';
+import * as ipcRendererBindingsModule from '../ipcRendererBindings.js';
+import {
+    createCuePreviewButton,
+    syncAllCuePreviewButtons,
+    handleCuePreviewClick
+} from './cuePreviewButton.js';
+import { shouldShowCueMeter } from '../cueMeterVisibility.js';
+import {
+    dbfsToMeterRatio,
+    updateCueMeterPeakHold,
+    clearCueMeterPeakHold,
+    formatCueMeterDbfsLabel,
+    buildCueMeterZonesGradient,
+    CUE_METER_FLOOR_DBFS
+} from '../cueMeterDisplay.js';
 import {
     beginDragGap,
     endDragGap,
@@ -43,13 +58,15 @@ function getAppConfigForWaveform() {
 let isInitialized = false;
 let cueStore, audioController, dragDrop, uiCore; // Scoped module refs
 let cueButtonMap = {}; // To store references to cue button DOM elements
-let cueMeterElements = {}; // Stores meter bar elements per cue
-let cueMeterLevels = {}; // Stores smoothed meter level per cue
+let cueMeterElements = {}; // Stores meter DOM refs per cue
+let cueMeterLevels = {}; // Stores smoothed meter height ratio per cue
+const cueMeterPeakHoldUntil = {}; // Peak-hold expiry (ms) when level >= 0 dBFS
 const cueMeterLiveSources = new Set(); // Tracks cues with live analyser-driven meters
 let cueBadgeElements = {}; // Stores references to icon elements per cue
 
-const METER_MIN_HEIGHT_PERCENT = 4; // Prevent meter from collapsing completely when active
-const METER_SMOOTHING = 0.4; // Smoothing factor for visual stability
+const METER_MIN_HEIGHT_PERCENT = 2;
+const METER_SMOOTHING = 0.4;
+
 const DUCK_TRIGGER_ICON_PATH = '../../assets/icons/DUCKING_TRIGGER.png';
 const DUCK_ACTIVE_ICON_PATH = '../../assets/icons/DUCKED.png';
 let dragOverCueId = null;
@@ -296,6 +313,7 @@ function appendEditModeCueCard(cue, cueWrapper) {
     card.innerHTML = `
         <div class="cue-edit-top">
             <div class="cue-edit-top-right">
+                <button type="button" class="cue-preview-btn cue-edit-preview-btn" title="Preview on monitor output" aria-label="Preview on monitor output" aria-pressed="false">♪</button>
                 <button type="button" class="cue-edit-settings-btn" title="Cue properties" aria-label="Cue properties">&#9881;</button>
             </div>
         </div>
@@ -359,6 +377,13 @@ function appendEditModeCueCard(cue, cueWrapper) {
         setSingleCueSelection(cue.id);
     });
 
+    const previewBtn = card.querySelector('.cue-edit-preview-btn');
+    if (previewBtn) {
+        previewBtn.addEventListener('click', (event) => {
+            handleCuePreviewClick(event, cue, previewBtn, ipcRendererBindingsModule?.resolveAudioPath);
+        });
+    }
+
     bindEditCardLoopButton(card.querySelector('.cue-edit-loop-btn'), cue.id);
 
     card.addEventListener('click', (event) => handleEditCueCardSelectionClick(event, cue));
@@ -370,7 +395,7 @@ function appendEditModeCueCard(cue, cueWrapper) {
 function handleEditCueCardSelectionClick(event, cue) {
     if (!uiCore?.isPersistedEditMode?.()) return;
     if (event.target.closest(
-        '.cue-edit-name, .cue-color-swatch, .cue-color-custom-wrap, .cue-edit-settings-btn, .cue-edit-loop-btn, .cue-edit-volume-row, .cue-edit-volume, .cue-edit-drag, .cue-move-btn, input[type="range"], input[type="color"]'
+        '.cue-edit-name, .cue-color-swatch, .cue-color-custom-wrap, .cue-edit-settings-btn, .cue-edit-loop-btn, .cue-preview-btn, .cue-edit-volume-row, .cue-edit-volume, .cue-edit-drag, .cue-move-btn, input[type="range"], input[type="color"]'
     )) {
         return;
     }
@@ -472,6 +497,12 @@ export function initCueGrid(cs, ac, dd, ui) {
     uiCore = ui;
     cacheDOMElements();
     bindEventListeners();
+    document.addEventListener('cue-monitor-preview-stopped', () => {
+        syncAllCuePreviewButtons(null);
+    });
+    document.addEventListener('cue-monitor-preview-started', (event) => {
+        syncAllCuePreviewButtons(event.detail?.cueId || null);
+    });
     isInitialized = true; // Set initialization flag
     window.__refreshCueCardAppearance = refreshCueCardAppearance;
     window.__refreshEditCardIndicators = refreshEditCardIndicators;
@@ -815,22 +846,18 @@ function renderCues() {
         const timeCurrentElem = document.createElement('span');
         timeCurrentElem.className = 'cue-time-current';
         timeCurrentElem.id = `cue-time-current-${cue.id}`;
-        // timeCurrentElem.textContent = ''; // Set by updateCueButtonTime
 
         const timeSeparator = document.createElement('span');
         timeSeparator.className = 'cue-time-separator';
         timeSeparator.id = `cue-time-separator-${cue.id}`;
-        // timeSeparator.textContent = ''; // Set by updateCueButtonTime
 
         const timeTotalElem = document.createElement('span');
         timeTotalElem.className = 'cue-time-total';
         timeTotalElem.id = `cue-time-total-${cue.id}`;
-        // timeTotalElem.textContent = ''; // Set by updateCueButtonTime
 
         const timeRemainingElem = document.createElement('span');
         timeRemainingElem.className = 'cue-time-remaining';
         timeRemainingElem.id = `cue-time-remaining-${cue.id}`;
-        // timeRemainingElem.textContent = ''; // Set by updateCueButtonTime
 
         timeContainer.appendChild(timeCurrentElem);
         timeContainer.appendChild(timeSeparator);
@@ -853,18 +880,48 @@ function renderCues() {
 
         interactiveContainer.appendChild(button);
 
+        const previewWrap = document.createElement('div');
+        previewWrap.className = 'cue-preview-btn-wrap';
+        previewWrap.appendChild(createCuePreviewButton(cue, ipcRendererBindingsModule?.resolveAudioPath));
+        interactiveContainer.appendChild(previewWrap);
+
         const meterContainer = document.createElement('div');
         meterContainer.className = 'cue-audio-meter-container';
         meterContainer.setAttribute('data-cue-id', cue.id);
 
-        const meterBar = document.createElement('div');
-        meterBar.className = 'cue-audio-meter-bar';
-        meterBar.id = `cue-meter-${cue.id}`;
+        const meterTrack = document.createElement('div');
+        meterTrack.className = 'cue-audio-meter-track';
 
-        meterContainer.appendChild(meterBar);
+        const meterZones = document.createElement('div');
+        meterZones.className = 'cue-audio-meter-zones';
+        meterZones.style.background = buildCueMeterZonesGradient();
+
+        const meterMask = document.createElement('div');
+        meterMask.className = 'cue-audio-meter-mask';
+
+        const peakHoldLine = document.createElement('div');
+        peakHoldLine.className = 'cue-audio-meter-peak-hold';
+        peakHoldLine.title = 'Peak above 0 dBFS';
+
+        const dbfsEl = document.createElement('div');
+        dbfsEl.className = 'cue-audio-meter-dbfs';
+        dbfsEl.title = 'dBFS';
+        dbfsEl.setAttribute('aria-hidden', 'true');
+
+        meterTrack.appendChild(meterZones);
+        meterTrack.appendChild(meterMask);
+        meterTrack.appendChild(peakHoldLine);
+        meterContainer.appendChild(meterTrack);
+        meterContainer.appendChild(dbfsEl);
         interactiveContainer.appendChild(meterContainer);
 
-        cueMeterElements[cue.id] = meterBar;
+        cueMeterElements[cue.id] = {
+            mask: meterMask,
+            container: meterContainer,
+            zones: meterZones,
+            peakHoldLine,
+            dbfsEl
+        };
         cueMeterLevels[cue.id] = 0;
         cueBadgeElements[cue.id] = {
             indicatorStrip,
@@ -1015,6 +1072,9 @@ function getDragAfterElement(container, y) {
 function handleCueButtonClick(event, cue) {
     if (!cue) {
         uiLog.error(`UI: Cue not found.`);
+        return;
+    }
+    if (event.target.closest('.cue-preview-btn')) {
         return;
     }
     if (event.target.closest('.cue-button-waveform-wrap')) {
@@ -1252,6 +1312,7 @@ function updateButtonPlayingState(cueId, isPlaying, statusTextArg = null, isCued
     applyCueBadgeState(cueId, playbackState);
 
     updateCueButtonTime(cueId, elements);
+    syncCueMeterContainerVisibility(cueId, audioController.default.isPlaying(cueId));
 }
 
 function updateCueButtonTime(cueId, elements = null, isFadingIn = false, isFadingOut = false, fadeTimeRemainingMs = 0) {
@@ -1503,40 +1564,98 @@ function applyCueBadgeState(cueId, playbackState = null) {
     }
 }
 
-function setCueMeterLevel(cueId, level, { immediate = false } = {}) {
-    const meter = cueMeterElements[cueId];
-    if (!meter) return;
-
-    const sanitizedLevel = Number.isFinite(level) ? level : 0;
-    const clampedLevel = Math.max(0, Math.min(1, sanitizedLevel));
-    const previousLevel = cueMeterLevels[cueId] ?? 0;
-    const smoothingFactor = immediate ? 1 : METER_SMOOTHING;
-    const smoothedLevel = previousLevel + (clampedLevel - previousLevel) * smoothingFactor;
-    cueMeterLevels[cueId] = smoothedLevel;
-
-    const percentage = smoothedLevel <= 0 ? 0 : Math.max(METER_MIN_HEIGHT_PERCENT, smoothedLevel * 100);
-    meter.style.height = `${percentage}%`;
-
-    const container = meter.parentElement;
-    if (container) {
-        if (smoothedLevel > 0.02) {
-            container.classList.add('cue-audio-meter-active');
-        } else {
-            container.classList.remove('cue-audio-meter-active');
-        }
-    }
+function syncCueMeterContainerVisibility(cueId, isPlaying) {
+    const meterRefs = cueMeterElements[cueId];
+    if (!meterRefs?.container) return;
+    const cue = cueStore?.getCueById?.(cueId);
+    const appConfig = getAppConfigForWaveform();
+    const visible = isPlaying && shouldShowCueMeter(cue, appConfig);
+    meterRefs.container.classList.toggle('cue-audio-meter-visible', visible);
 }
 
-function updateCueMeterLevel(cueId, level, { immediate = false } = {}) {
+function refreshAllCueMeterVisibility() {
+    if (!cueStore) return;
+    const cues = cueStore.getAllCues() || [];
+    const ac = audioController?.default || audioController;
+    cues.forEach((cue) => {
+        const playing = ac && typeof ac.isPlaying === 'function' ? ac.isPlaying(cue.id) : false;
+        syncCueMeterContainerVisibility(cue.id, playing);
+    });
+}
+
+function setCueMeterLevel(cueId, level, { immediate = false, meterDbfs = null, isPlaying = false } = {}) {
+    const meterRefs = cueMeterElements[cueId];
+    const mask = meterRefs?.mask;
+    if (!mask) return;
+
+    const targetRatio = isPlaying ? dbfsToMeterRatio(meterDbfs) : 0;
+    const showMeterActivity = isPlaying && (
+        targetRatio > 0.01 || (Number.isFinite(meterDbfs) && meterDbfs > CUE_METER_FLOOR_DBFS)
+    );
+
+    const previousLevel = cueMeterLevels[cueId] ?? 0;
+    const smoothingFactor = immediate ? 1 : METER_SMOOTHING;
+    const smoothedLevel = showMeterActivity
+        ? previousLevel + (targetRatio - previousLevel) * smoothingFactor
+        : previousLevel + (0 - previousLevel) * (immediate ? 1 : 0.5);
+    cueMeterLevels[cueId] = smoothedLevel;
+
+    const litPct = smoothedLevel <= 0 ? 0 : Math.max(METER_MIN_HEIGHT_PERCENT / 100, smoothedLevel);
+    mask.style.height = `${Math.max(0, (1 - litPct) * 100)}%`;
+
+    const container = meterRefs?.container;
+    if (container) {
+        container.classList.toggle('cue-audio-meter-active', showMeterActivity && smoothedLevel > 0.02);
+    }
+
+    if (meterRefs?.dbfsEl) {
+        meterRefs.dbfsEl.textContent = showMeterActivity && meterDbfs != null
+            ? formatCueMeterDbfsLabel(meterDbfs)
+            : '';
+    }
+
+    const showPeakHold = showMeterActivity
+        && updateCueMeterPeakHold(cueMeterPeakHoldUntil, cueId, meterDbfs);
+    if (meterRefs?.peakHoldLine) {
+        meterRefs.peakHoldLine.classList.toggle('visible', showPeakHold);
+    }
+    if (!showMeterActivity && meterRefs?.peakHoldLine) {
+        meterRefs.peakHoldLine.classList.remove('visible');
+    }
+
+    syncCueMeterContainerVisibility(cueId, showMeterActivity);
+}
+
+function updateCueMeterLevel(cueId, level, { immediate = false, meterDbfs = null, isPlaying = false } = {}) {
     cueMeterLiveSources.add(cueId);
-    setCueMeterLevel(cueId, level, { immediate });
+    setCueMeterLevel(cueId, level, { immediate, meterDbfs, isPlaying });
+}
+
+function clearCueMeterClipState(cueId) {
+    clearCueMeterPeakHold(cueMeterPeakHoldUntil, cueId);
+    const meterRefs = cueMeterElements[cueId];
+    if (meterRefs?.peakHoldLine) {
+        meterRefs.peakHoldLine.classList.remove('visible');
+    }
 }
 
 function resetCueMeter(cueId, { immediate = true } = {}) {
     if (cueMeterLiveSources.has(cueId)) {
         cueMeterLiveSources.delete(cueId);
     }
-    setCueMeterLevel(cueId, 0, { immediate });
+    clearCueMeterPeakHold(cueMeterPeakHoldUntil, cueId);
+    const meterRefs = cueMeterElements[cueId];
+    if (meterRefs?.peakHoldLine) {
+        meterRefs.peakHoldLine.classList.remove('visible');
+    }
+    if (meterRefs?.dbfsEl) {
+        meterRefs.dbfsEl.textContent = '';
+    }
+    if (meterRefs?.mask) {
+        meterRefs.mask.style.height = '100%';
+    }
+    setCueMeterLevel(cueId, 0, { immediate, meterDbfs: null, isPlaying: false });
+    syncCueMeterContainerVisibility(cueId, false);
 }
 
 function formatTimeMMSS(timeInSeconds) {
@@ -1571,6 +1690,8 @@ export {
     updateCueButtonTimeWithData,
     updateCueMeterLevel,
     resetCueMeter,
+    clearCueMeterClipState,
+    refreshAllCueMeterVisibility,
     applyCueBadgeState,
     refreshAllCueBadges,
     getSelectedCueIds,

@@ -39,7 +39,9 @@ setInterval(cleanupIpcTriggerLocks, 30000);
 
 const {
     normalizeShowButtonWaveformOverride,
-    resolveEffectiveShowButtonWaveform
+    resolveEffectiveShowButtonWaveform,
+    normalizeShowCueMeterOverride,
+    resolveEffectiveShowCueMeter
 } = require('./showButtonWaveformUtils');
 const {
     normalizeRetriggerBehaviorOverride,
@@ -58,6 +60,10 @@ let mainWindowRef;
 let workspaceManagerRef = null;
 let appConfigManagerRef = null;
 let configuredPort = 3000;
+let cachedRemoteAudioDevices = [];
+let cachedRemoteOutputLevels = null;
+let cachedRemotePreviewState = { cueId: null, active: false };
+let cachedRemoteCrossfadeEnabled = false;
 let appConfigRef = null;
 
 function sendToClient(ws, message) {
@@ -114,6 +120,16 @@ async function handleRemoteMessage(ws, message) {
                 mainWindowRef.webContents.send('stop-all-audio');
                 logger.info('HTTP_SERVER: Stop all cues command sent to main window');
             }
+            return;
+        }
+
+        if (action === 'set_crossfade_enabled') {
+            const enabled = !!parsedMessage.enabled;
+            setCachedRemoteCrossfadeState(enabled);
+            if (mainWindowRef && mainWindowRef.webContents && !mainWindowRef.webContents.isDestroyed()) {
+                mainWindowRef.webContents.send('set-crossfade-from-main', { enabled });
+            }
+            sendActionResult(ws, action, true);
             return;
         }
 
@@ -287,6 +303,38 @@ async function handleRemoteMessage(ws, message) {
             return;
         }
 
+        if (action === 'preview_cue_monitor' && parsedMessage.cueId) {
+            if (mainWindowRef && mainWindowRef.webContents) {
+                mainWindowRef.webContents.send('preview-cue-on-monitor-from-main', {
+                    cueId: parsedMessage.cueId,
+                    source: 'remote_http'
+                });
+            }
+            sendActionResult(ws, action, true);
+            return;
+        }
+
+        if (action === 'stop_cue_preview') {
+            if (mainWindowRef && mainWindowRef.webContents) {
+                mainWindowRef.webContents.send('stop-cue-monitor-preview-from-main', {
+                    source: 'remote_http'
+                });
+            }
+            sendActionResult(ws, action, true);
+            return;
+        }
+
+        if (action === 'request_audio_devices') {
+            if (mainWindowRef && mainWindowRef.webContents) {
+                mainWindowRef.webContents.send('request-audio-devices-for-remote');
+            }
+            if (cachedRemoteAudioDevices.length > 0) {
+                sendToClient(ws, { type: 'audio_devices', payload: cachedRemoteAudioDevices });
+            }
+            sendActionResult(ws, action, true);
+            return;
+        }
+
         if (action === 'update_config') {
             if (!appConfigManagerRef || typeof appConfigManagerRef.updateConfig !== 'function') {
                 sendActionResult(ws, action, false, 'Config manager unavailable');
@@ -304,6 +352,9 @@ async function handleRemoteMessage(ws, message) {
             }
             appConfigRef = appConfigManagerRef.getConfig();
             broadcastConfigSnapshot();
+            if (mainWindowRef && mainWindowRef.webContents && !mainWindowRef.webContents.isDestroyed()) {
+                mainWindowRef.webContents.send('app-config-updated-from-main', appConfigRef);
+            }
             sendActionResult(ws, action, true);
             return;
         }
@@ -376,6 +427,8 @@ function processCueForRemote(cue, overrides = {}) {
         buttonColor: cue.buttonColor || null,
         showButtonWaveform: normalizeShowButtonWaveformOverride(cue.showButtonWaveform),
         effectiveShowButtonWaveform: resolveEffectiveShowButtonWaveform(cue, appConfigRef || {}),
+        showCueMeter: normalizeShowCueMeterOverride(cue.showCueMeter),
+        effectiveShowCueMeter: resolveEffectiveShowCueMeter(cue, appConfigRef || {}),
         volume: cue.volume !== undefined ? cue.volume : 1,
         fadeInTime: cue.fadeInTime || 0,
         fadeOutTime: cue.fadeOutTime || 0,
@@ -465,6 +518,14 @@ function initialize(cueMgr, mainWin, appConfig = null, workspaceMgr = null, appC
             });
             ws.send(JSON.stringify(workspace));
             sendToClient(ws, { type: 'config_snapshot', payload: getRemoteConfigSnapshot(appConfigRef || {}) });
+            if (cachedRemoteAudioDevices.length > 0) {
+                sendToClient(ws, { type: 'audio_devices', payload: cachedRemoteAudioDevices });
+            }
+            if (cachedRemoteOutputLevels) {
+                sendToClient(ws, { type: 'output_levels', payload: cachedRemoteOutputLevels });
+            }
+            sendToClient(ws, { type: 'crossfade_state', payload: { enabled: cachedRemoteCrossfadeEnabled } });
+            sendToClient(ws, { type: 'preview_state', payload: cachedRemotePreviewState });
         }
 
         ws.on('message', (message) => {
@@ -564,4 +625,36 @@ function updateConfig(newConfig) {
     }
 }
 
-module.exports = { initialize, broadcastToRemotes, formatCuesForRemote, getRemoteInfo, updateConfig }; 
+function setCachedRemoteAudioDevices(devices = []) {
+    cachedRemoteAudioDevices = Array.isArray(devices) ? devices : [];
+    broadcastToRemotes({ type: 'audio_devices', payload: cachedRemoteAudioDevices });
+}
+
+function setCachedRemoteOutputLevels(levels) {
+    cachedRemoteOutputLevels = levels || null;
+    if (levels) {
+        broadcastToRemotes({ type: 'output_levels', payload: levels });
+    }
+}
+
+function setCachedRemotePreviewState(state) {
+    cachedRemotePreviewState = state || { cueId: null, active: false };
+    broadcastToRemotes({ type: 'preview_state', payload: cachedRemotePreviewState });
+}
+
+function setCachedRemoteCrossfadeState(enabled) {
+    cachedRemoteCrossfadeEnabled = !!enabled;
+    broadcastToRemotes({ type: 'crossfade_state', payload: { enabled: cachedRemoteCrossfadeEnabled } });
+}
+
+module.exports = {
+    initialize,
+    broadcastToRemotes,
+    formatCuesForRemote,
+    getRemoteInfo,
+    updateConfig,
+    setCachedRemoteAudioDevices,
+    setCachedRemoteOutputLevels,
+    setCachedRemotePreviewState,
+    setCachedRemoteCrossfadeState
+}; 

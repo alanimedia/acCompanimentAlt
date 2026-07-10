@@ -1,6 +1,9 @@
 // acCompaniment/src/renderer/ipcRendererBindings.js
 // Sets up renderer-side IPC listeners and sender functions.
 
+import { previewCueOnMonitor, stopCueMonitorPreview } from './cueMonitorPreview.js';
+import { syncAllCuePreviewButtons } from './ui/cuePreviewButton.js';
+
 let electronAPIInstance;
 
 let audioControllerRef = null;
@@ -268,6 +271,12 @@ function setupOtherListeners() {
             await uiRef.handleWorkspaceChange(); 
         }
     });
+
+    electronAPIInstance.on('set-crossfade-from-main', ({ enabled }) => {
+        if (uiRef && typeof uiRef.setCrossfadeEnabled === 'function') {
+            uiRef.setCrossfadeEnabled(!!enabled, { broadcast: false });
+        }
+    });
     
     let triggerCueByIdFromMainInProgress = false;
     electronAPIInstance.on('trigger-cue-by-id-from-main', ({ cueId, source }) => {
@@ -378,6 +387,41 @@ function setupOtherListeners() {
         const ac = audioControllerRef?.default || audioControllerRef;
         if (ac && typeof ac.setVolume === 'function' && cueId != null && volume != null) {
             ac.setVolume(cueId, volume, { persist: persist !== false });
+        }
+    });
+
+    electronAPIInstance.on('preview-cue-on-monitor-from-main', async ({ cueId }) => {
+        if (!cueId) return;
+        const cue = cueStoreRef?.getCueById?.(cueId);
+        if (!cue) {
+            console.warn(`IPC Binding: preview-cue-on-monitor-from-main cue not found: ${cueId}`);
+            return;
+        }
+        await previewCueOnMonitor(cue, resolveAudioPath);
+        syncAllCuePreviewButtons(cueId);
+    });
+
+    electronAPIInstance.on('stop-cue-monitor-preview-from-main', () => {
+        stopCueMonitorPreview();
+        syncAllCuePreviewButtons(null);
+    });
+
+    electronAPIInstance.on('request-audio-devices-for-remote', async () => {
+        if (!navigator.mediaDevices?.enumerateDevices) return;
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const outputs = devices
+                .filter((device) => device.kind === 'audiooutput')
+                .map((device) => ({
+                    id: device.deviceId,
+                    label: device.label || `Audio Output ${device.deviceId.substring(0, 8)}...`
+                }));
+            const payload = [{ id: 'default', label: 'System Default' }, ...outputs.filter((d) => d.id !== 'default')];
+            if (window.electronAPI?.send) {
+                window.electronAPI.send('report-remote-audio-devices', { devices: payload });
+            }
+        } catch (error) {
+            console.warn('IPC Binding: Failed to enumerate audio devices for remote:', error);
         }
     });
 }

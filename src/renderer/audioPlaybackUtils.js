@@ -144,11 +144,45 @@ function clearPerformanceCache() {
     log.info('Performance cache cleared');
 }
 
+function clampUnitVolume(volume, fallback = 1) {
+    const parsed = Number(volume);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(0, Math.min(1, parsed));
+}
+
+/**
+ * Resolve the configured (pre-fader) cue volume — never use live output level during fades.
+ */
+function resolveConfiguredCueVolume(cue, playingState = null, playlistItem = null) {
+    if (playingState && typeof playingState.originalVolume === 'number' && Number.isFinite(playingState.originalVolume)) {
+        return clampUnitVolume(playingState.originalVolume);
+    }
+    if (playlistItem && typeof playlistItem.volume === 'number') {
+        return clampUnitVolume(playlistItem.volume);
+    }
+    if (cue && typeof cue.volume === 'number') {
+        return clampUnitVolume(cue.volume);
+    }
+    return 1;
+}
+
+function ensurePlayingStateOriginalVolume(playingState, cue, playlistItem = null) {
+    if (!playingState) return 1;
+    const resolved = resolveConfiguredCueVolume(cue, playingState, playlistItem);
+    if (typeof playingState.originalVolume !== 'number' || !Number.isFinite(playingState.originalVolume)) {
+        playingState.originalVolume = resolved;
+    }
+    return playingState.originalVolume;
+}
+
 export {
     PERFORMANCE_CACHE,
     THROTTLE_CACHE,
     throttle,
     _generateShuffleOrder,
     cleanupAllResources,
-    clearPerformanceCache
+    clearPerformanceCache,
+    resolveConfiguredCueVolume,
+    ensurePlayingStateOriginalVolume,
+    clampUnitVolume
 };

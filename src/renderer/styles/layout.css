@@ -161,7 +161,7 @@
 
 /* Left Config Sidebar */
 #configSidebar {
-    width: 280px;
+    width: 320px;
     background-color: #252526; /* Dark sidebar background */
     padding: 15px;
     border-right: 1px solid var(--border-color); /* Darker border */
@@ -480,6 +480,117 @@ body.main-waveform-resizing {
     align-items: center;
     gap: 8px;
     justify-self: end;
+}
+
+.header-master-volume {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+#appContainer.show-mode .header-master-volume {
+    display: flex;
+}
+
+.header-volume-label {
+    flex: 0 0 auto;
+    font-size: 0.72em;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-secondary-color, #bbb);
+    white-space: nowrap;
+}
+
+.header-volume-slider {
+    flex: 1 1 120px;
+    width: 120px;
+    min-width: 80px;
+    max-width: 180px;
+    height: 6px;
+    margin: 0;
+    accent-color: #3d8bfd;
+    cursor: pointer;
+}
+
+.header-volume-slider::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 3px;
+    background: #5a5a5a;
+}
+
+.header-volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -4px;
+    border-radius: 50%;
+    background: #3d8bfd;
+    border: 1px solid rgba(255, 255, 255, 0.85);
+}
+
+.header-volume-value {
+    flex: 0 0 34px;
+    font-size: 0.75em;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary-color, #bbb);
+    text-align: right;
+}
+
+.header-master-meter {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#appContainer.show-mode .header-master-meter {
+    display: flex;
+}
+
+.header-output-vu {
+    position: relative;
+    width: 56px;
+    height: 8px;
+    border: 1px inset rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    background: #101010;
+    flex-shrink: 0;
+}
+
+.header-output-vu-zones {
+    position: absolute;
+    inset: 0;
+}
+
+.header-output-vu-mask {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    background: rgba(8, 8, 8, 0.88);
+    transition: width 45ms linear;
+    pointer-events: none;
+}
+
+.header-output-dbfs {
+    font-size: 0.68em;
+    font-variant-numeric: tabular-nums;
+    color: #d8f6ff;
+    min-width: 3.2em;
+    white-space: nowrap;
+    line-height: 1;
 }
 
 /* Right Properties Sidebar */

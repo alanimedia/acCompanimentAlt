@@ -12,8 +12,23 @@ import {
 import { refreshAllCueBadges } from './cueGrid.js';
 import {
     setMonitorOutputDeviceId,
-    setRouteShowPlaybackToMonitor
+    setRouteShowPlaybackToMonitor,
+    setMainOutputVolume,
+    setMonitorOutputVolume
 } from '../audioOutputRouting.js';
+import {
+    initAudioOutputDiagnostics,
+    setOutputChannelDevice,
+    syncOutputChannelDevice,
+    startOutputChannelTest,
+    stopAllOutputChannelTests,
+    isOutputChannelTestPlaying,
+    ensureMainOutputAnalyser,
+    formatOutputLoudness,
+    refreshActiveTestToneVolumes
+} from '../audioOutputDiagnostics.js';
+import { dbfsToMeterRatio, peakToMeterRatio, buildOutputMeterZonesGradient } from '../cueMeterDisplay.js';
+import { formatDbfsCompact } from '../audioLoudnessMeter.js';
 
 // let ipcRendererBindings; // REMOVE: This will now refer to the imported module alias
 
@@ -54,6 +69,23 @@ let configCrossfadeTimeInput;
 let configAudioOutputDeviceSelect;
 let configAudioMonitorOutputDeviceSelect;
 let configRouteShowPlaybackToMonitorCheckbox;
+let configMainOutputTestBtn;
+let configMonitorOutputTestBtn;
+let configMainOutputVolume;
+let configMonitorOutputVolume;
+let configMainOutputVolumeValue;
+let configMonitorOutputVolumeValue;
+let headerMainOutputVolume;
+let headerMainOutputVolumeValue;
+let headerMainOutputMeter;
+let headerMainOutputDbfs;
+let configMainOutputMeter;
+let configMonitorOutputMeter;
+let configMainOutputLufs;
+let configMonitorOutputLufs;
+let configMainOutputDbfs;
+let configMonitorOutputDbfs;
+let lastRemoteLevelsSentAt = 0;
 
 // UI Settings
 // let configShowQuickControlsCheckbox; // REMOVED
@@ -66,6 +98,7 @@ let configHttpRemoteLinksGroup;
 let configHttpRemoteLinksDiv;
 let configMainWaveformEnabledCheckbox;
 let configDefaultShowButtonWaveformCheckbox;
+let configDefaultShowCueMeterCheckbox;
 
 // Mixer Integration Elements
 // Mixer Integration removed
@@ -75,6 +108,9 @@ let configDefaultShowButtonWaveformCheckbox;
 // --- App Configuration State (local cache) ---
 let currentAppConfig = {};
 let isPopulatingSidebar = false;
+let audioOutputDiagnosticsBound = false;
+let mainVuDisplayLevel = 0;
+let monitorVuDisplayLevel = 0;
 let audioControllerRef = null; // Reference to audioController for applying device changes
 
 async function init(electronAPI) { // Renamed parameter to avoid confusion
@@ -89,6 +125,7 @@ async function init(electronAPI) { // Renamed parameter to avoid confusion
 
     try {
         await forceLoadAndApplyAppConfiguration();
+        setupAudioOutputDiagnostics();
         uiLog.info('AppConfigUI: Initial config loaded and populated after init. Returning config.');
         return currentAppConfig; // Return the loaded config
     } catch (error) {
@@ -121,6 +158,9 @@ function syncAppConfigToAudioController(config) {
     if (config) {
         setMonitorOutputDeviceId(config.audioMonitorOutputDeviceId || 'default');
         setRouteShowPlaybackToMonitor(config.routeShowPlaybackToMonitor === true);
+        setMainOutputVolume(typeof config.mainOutputVolume === 'number' ? config.mainOutputVolume : 1);
+        setMonitorOutputVolume(typeof config.monitorOutputVolume === 'number' ? config.monitorOutputVolume : 1);
+        refreshActiveTestToneVolumes();
     }
 }
 
@@ -176,6 +216,22 @@ function cacheDOMElements() {
     configAudioOutputDeviceSelect = document.getElementById('configAudioOutputDevice');
     configAudioMonitorOutputDeviceSelect = document.getElementById('configAudioMonitorOutputDevice');
     configRouteShowPlaybackToMonitorCheckbox = document.getElementById('configRouteShowPlaybackToMonitor');
+    configMainOutputTestBtn = document.getElementById('configMainOutputTestBtn');
+    configMonitorOutputTestBtn = document.getElementById('configMonitorOutputTestBtn');
+    configMainOutputVolume = document.getElementById('configMainOutputVolume');
+    configMonitorOutputVolume = document.getElementById('configMonitorOutputVolume');
+    configMainOutputVolumeValue = document.getElementById('configMainOutputVolumeValue');
+    configMonitorOutputVolumeValue = document.getElementById('configMonitorOutputVolumeValue');
+    configMainOutputMeter = document.getElementById('configMainOutputMeter');
+    configMonitorOutputMeter = document.getElementById('configMonitorOutputMeter');
+    configMainOutputLufs = document.getElementById('configMainOutputLufs');
+    configMonitorOutputLufs = document.getElementById('configMonitorOutputLufs');
+    configMainOutputDbfs = document.getElementById('configMainOutputDbfs');
+    configMonitorOutputDbfs = document.getElementById('configMonitorOutputDbfs');
+    headerMainOutputVolume = document.getElementById('headerMainOutputVolume');
+    headerMainOutputVolumeValue = document.getElementById('headerMainOutputVolumeValue');
+    headerMainOutputMeter = document.getElementById('headerMainOutputMeter');
+    headerMainOutputDbfs = document.getElementById('headerMainOutputDbfs');
 
     // HTTP Remote Control Elements
     configHttpRemoteEnabledCheckbox = document.getElementById('configHttpRemoteEnabled');
@@ -185,6 +241,7 @@ function cacheDOMElements() {
     configHttpRemoteLinksDiv = document.getElementById('httpRemoteLinksDiv');
     configMainWaveformEnabledCheckbox = document.getElementById('configMainWaveformEnabled');
     configDefaultShowButtonWaveformCheckbox = document.getElementById('configDefaultShowButtonWaveform');
+    configDefaultShowCueMeterCheckbox = document.getElementById('configDefaultShowCueMeter');
 
     // Mixer Integration removed
 
@@ -227,7 +284,10 @@ function bindEventListeners() {
         configDefaultStopAllFadeOutInput.addEventListener('change', handleAppConfigChange);
     }
 
-    if (configAudioOutputDeviceSelect) configAudioOutputDeviceSelect.addEventListener('change', handleAppConfigChange);
+    if (configAudioOutputDeviceSelect) configAudioOutputDeviceSelect.addEventListener('change', handleAudioOutputDeviceChange);
+    if (configAudioMonitorOutputDeviceSelect) configAudioMonitorOutputDeviceSelect.addEventListener('change', handleAudioOutputDeviceChange);
+    if (configRouteShowPlaybackToMonitorCheckbox) configRouteShowPlaybackToMonitorCheckbox.addEventListener('change', handleAppConfigChange);
+    bindAudioOutputDiagnosticsControls();
     
     // HTTP Remote Control event listeners
     if (configHttpRemoteEnabledCheckbox) {
@@ -257,6 +317,9 @@ function bindEventListeners() {
     if (configDefaultShowButtonWaveformCheckbox) {
         configDefaultShowButtonWaveformCheckbox.addEventListener('change', handleAppConfigChange);
     }
+    if (configDefaultShowCueMeterCheckbox) {
+        configDefaultShowCueMeterCheckbox.addEventListener('change', handleAppConfigChange);
+    }
     
     // Mixer event listeners removed
 
@@ -266,6 +329,201 @@ function bindEventListeners() {
 function handleSaveButtonClick() {
     uiLog.info('AppConfigUI: Save button clicked.');
     saveAppConfiguration();
+}
+
+function updateOutputVolumeLabel(sliderEl, labelEl) {
+    if (!sliderEl || !labelEl) return;
+    labelEl.textContent = `${parseInt(sliderEl.value, 10) || 0}%`;
+}
+
+function setupOutputMeterZoneGradients() {
+    const gradient = buildOutputMeterZonesGradient();
+    document.querySelectorAll('.audio-output-vu-zones, .header-output-vu-zones').forEach((el) => {
+        el.style.background = gradient;
+    });
+}
+
+function updateOutputMeterUI(levels) {
+    const applyVuLevel = (maskEl, rawLevel, channel, dbfs) => {
+        if (!maskEl) return;
+        const targetRatio = Number.isFinite(dbfs)
+            ? dbfsToMeterRatio(dbfs)
+            : peakToMeterRatio(rawLevel || 0);
+        const clamped = Math.max(0, Math.min(1, targetRatio));
+        let displayLevel = channel === 'main' ? mainVuDisplayLevel : monitorVuDisplayLevel;
+        if (clamped >= displayLevel) {
+            displayLevel = clamped;
+        } else {
+            displayLevel = Math.max(clamped, displayLevel * 0.9);
+        }
+        if (channel === 'main') {
+            mainVuDisplayLevel = displayLevel;
+        } else {
+            monitorVuDisplayLevel = displayLevel;
+        }
+        const dimPct = (1 - displayLevel) * 100;
+        maskEl.style.width = `${dimPct}%`;
+    };
+    applyVuLevel(configMainOutputMeter, levels?.main, 'main', levels?.dbfs?.main);
+    applyVuLevel(configMonitorOutputMeter, levels?.monitor, 'monitor', levels?.dbfs?.monitor);
+    applyVuLevel(headerMainOutputMeter, levels?.main, 'main', levels?.dbfs?.main);
+
+    const meterLabels = formatOutputLoudness(levels);
+    if (configMainOutputDbfs) configMainOutputDbfs.textContent = meterLabels.mainDbfs;
+    if (configMonitorOutputDbfs) configMonitorOutputDbfs.textContent = meterLabels.monitorDbfs;
+    if (headerMainOutputDbfs) {
+        headerMainOutputDbfs.textContent = formatDbfsCompact(levels?.dbfs?.main);
+    }
+    if (configMainOutputLufs) configMainOutputLufs.textContent = meterLabels.main;
+    if (configMonitorOutputLufs) configMonitorOutputLufs.textContent = meterLabels.monitor;
+
+    const now = performance.now();
+    if (now - lastRemoteLevelsSentAt >= 100) {
+        lastRemoteLevelsSentAt = now;
+        if (window.electronAPI?.send) {
+            window.electronAPI.send('report-remote-output-levels', {
+                main: levels?.main || 0,
+                monitor: levels?.monitor || 0,
+                dbfs: levels?.dbfs || {},
+                lufs: levels?.lufs || {}
+            });
+        }
+    }
+}
+
+function clampOutputVolumePercent(value) {
+    if (!Number.isFinite(value)) return 100;
+    return Math.max(0, Math.min(100, value));
+}
+
+function setMainVolumeSlidersPct(pct, skipEl = null) {
+    const clamped = clampOutputVolumePercent(pct);
+    const value = String(clamped);
+    if (configMainOutputVolume && configMainOutputVolume !== skipEl) {
+        configMainOutputVolume.value = value;
+    }
+    if (headerMainOutputVolume && headerMainOutputVolume !== skipEl) {
+        headerMainOutputVolume.value = value;
+    }
+    updateOutputVolumeLabel(configMainOutputVolume, configMainOutputVolumeValue);
+    updateOutputVolumeLabel(headerMainOutputVolume, headerMainOutputVolumeValue);
+}
+
+function applyOutputVolumesFromSliders({ persistConfig = false } = {}) {
+    const mainSource = configMainOutputVolume || headerMainOutputVolume;
+    const mainVol = mainSource
+        ? clampOutputVolumePercent(parseInt(mainSource.value, 10))
+        : 100;
+    setMainVolumeSlidersPct(mainVol);
+
+    const monitorVol = configMonitorOutputVolume
+        ? clampOutputVolumePercent(parseInt(configMonitorOutputVolume.value, 10))
+        : 100;
+
+    setMainOutputVolume(mainVol / 100);
+    setMonitorOutputVolume(monitorVol / 100);
+    refreshActiveTestToneVolumes();
+
+    updateOutputVolumeLabel(configMonitorOutputVolume, configMonitorOutputVolumeValue);
+
+    if (persistConfig) {
+        handleAppConfigChange();
+    }
+}
+
+function populateOutputVolumeSliders(config) {
+    const mainPct = Math.round((typeof config?.mainOutputVolume === 'number' ? config.mainOutputVolume : 1) * 100);
+    const monitorPct = Math.round((typeof config?.monitorOutputVolume === 'number' ? config.monitorOutputVolume : 1) * 100);
+    setMainVolumeSlidersPct(mainPct);
+    if (configMonitorOutputVolume) configMonitorOutputVolume.value = String(monitorPct);
+    updateOutputVolumeLabel(configMonitorOutputVolume, configMonitorOutputVolumeValue);
+}
+
+function syncOutputDiagnosticsDevices() {
+    const mainDeviceId = configAudioOutputDeviceSelect?.value || currentAppConfig.audioOutputDeviceId || 'default';
+    const monitorDeviceId = configAudioMonitorOutputDeviceSelect?.value || currentAppConfig.audioMonitorOutputDeviceId || 'default';
+    syncOutputChannelDevice('main', mainDeviceId);
+    syncOutputChannelDevice('monitor', monitorDeviceId);
+}
+
+function setOutputTestButtonState(mainPlaying, monitorPlaying) {
+    if (configMainOutputTestBtn) {
+        configMainOutputTestBtn.classList.toggle('active', mainPlaying);
+        configMainOutputTestBtn.textContent = mainPlaying ? 'Stop' : 'Test';
+    }
+    if (configMonitorOutputTestBtn) {
+        configMonitorOutputTestBtn.classList.toggle('active', monitorPlaying);
+        configMonitorOutputTestBtn.textContent = monitorPlaying ? 'Stop' : 'Test';
+    }
+}
+
+async function handleOutputTestButtonClick(channelKey) {
+    syncOutputDiagnosticsDevices();
+    const isMain = channelKey === 'main';
+    const isPlaying = isOutputChannelTestPlaying(channelKey);
+
+    if (isPlaying) {
+        await stopAllOutputChannelTests();
+        setOutputTestButtonState(false, false);
+        return;
+    }
+
+    await startOutputChannelTest(channelKey);
+    setOutputTestButtonState(isMain, !isMain);
+}
+
+function setupAudioOutputDiagnostics() {
+    setupOutputMeterZoneGradients();
+    initAudioOutputDiagnostics(updateOutputMeterUI);
+    syncOutputDiagnosticsDevices();
+    populateOutputVolumeSliders(currentAppConfig);
+    applyOutputVolumesFromSliders();
+    ensureMainOutputAnalyser();
+}
+
+function bindAudioOutputDiagnosticsControls() {
+    if (audioOutputDiagnosticsBound) return;
+    audioOutputDiagnosticsBound = true;
+
+    if (configMainOutputTestBtn) {
+        configMainOutputTestBtn.addEventListener('click', () => {
+            handleOutputTestButtonClick('main');
+        });
+    }
+    if (configMonitorOutputTestBtn) {
+        configMonitorOutputTestBtn.addEventListener('click', () => {
+            handleOutputTestButtonClick('monitor');
+        });
+    }
+    if (configMainOutputVolume) {
+        configMainOutputVolume.addEventListener('input', () => {
+            setMainVolumeSlidersPct(parseInt(configMainOutputVolume.value, 10) || 0, configMainOutputVolume);
+            applyOutputVolumesFromSliders({ persistConfig: true });
+        });
+    }
+    if (headerMainOutputVolume) {
+        headerMainOutputVolume.addEventListener('input', () => {
+            setMainVolumeSlidersPct(parseInt(headerMainOutputVolume.value, 10) || 0, headerMainOutputVolume);
+            applyOutputVolumesFromSliders({ persistConfig: true });
+        });
+    }
+    if (configMonitorOutputVolume) {
+        configMonitorOutputVolume.addEventListener('input', () => {
+            applyOutputVolumesFromSliders({ persistConfig: true });
+        });
+    }
+}
+
+async function handleAudioOutputDeviceChange() {
+    const mainDeviceId = configAudioOutputDeviceSelect?.value || 'default';
+    const monitorDeviceId = configAudioMonitorOutputDeviceSelect?.value || 'default';
+    setOutputChannelDevice('main', mainDeviceId);
+    setOutputChannelDevice('monitor', monitorDeviceId);
+    if (isOutputChannelTestPlaying('main') || isOutputChannelTestPlaying('monitor')) {
+        await stopAllOutputChannelTests();
+        setOutputTestButtonState(false, false);
+    }
+    handleAppConfigChange();
 }
 
 const debouncedSaveAppConfiguration = debounce(saveAppConfiguration, 500);
@@ -314,6 +572,9 @@ function populateConfigSidebar(config) {
         if (configDefaultShowButtonWaveformCheckbox) {
             configDefaultShowButtonWaveformCheckbox.checked = currentAppConfig.defaultShowButtonWaveform === true;
         }
+        if (configDefaultShowCueMeterCheckbox) {
+            configDefaultShowCueMeterCheckbox.checked = currentAppConfig.defaultShowCueMeter !== false;
+        }
         
         if (configAudioOutputDeviceSelect && currentAppConfig.audioOutputDeviceId) {
             configAudioOutputDeviceSelect.value = currentAppConfig.audioOutputDeviceId;
@@ -331,7 +592,11 @@ function populateConfigSidebar(config) {
             configRouteShowPlaybackToMonitorCheckbox.checked = currentAppConfig.routeShowPlaybackToMonitor === true;
         }
 
-        // Mixer config population removed
+        populateOutputVolumeSliders(currentAppConfig);
+        applyOutputVolumesFromSliders();
+        syncAppConfigToAudioController(currentAppConfig);
+        applyAudioRoutingFromConfig(currentAppConfig);
+        syncOutputDiagnosticsDevices();
         
         handleHttpRemoteEnabledChange();
         handleStopAllBehaviorChange();
@@ -520,6 +785,19 @@ async function populateAudioOutputSelect(selectEl, selectedDeviceId) {
     selectEl.value = selectedDeviceId || 'default';
 }
 
+function reportAudioOutputDevicesToRemote() {
+    const collectDevices = (selectEl) => {
+        if (!selectEl) return [];
+        return [...selectEl.options].map((option) => ({
+            id: option.value,
+            label: option.textContent || option.value
+        }));
+    };
+    const devices = collectDevices(configAudioOutputDeviceSelect);
+    if (devices.length === 0 || !window.electronAPI?.send) return;
+    window.electronAPI.send('report-remote-audio-devices', { devices });
+}
+
 async function loadAudioOutputDevices() {
     if (!configAudioOutputDeviceSelect && !configAudioMonitorOutputDeviceSelect) {
         uiLog.warn('AppConfigUI: Audio output select elements not found.');
@@ -532,6 +810,7 @@ async function loadAudioOutputDevices() {
         const monitorSelected = currentAppConfig?.audioMonitorOutputDeviceId || 'default';
         await populateAudioOutputSelect(configAudioOutputDeviceSelect, mainSelected);
         await populateAudioOutputSelect(configAudioMonitorOutputDeviceSelect, monitorSelected);
+        reportAudioOutputDevicesToRemote();
         uiLog.info('AppConfigUI: Audio output device selection completed.');
     } catch (error) {
         uiLog.error('AppConfigUI: Error loading audio output devices:', error);
@@ -577,9 +856,18 @@ function gatherConfigFromUI() {
         defaultShowButtonWaveform: configDefaultShowButtonWaveformCheckbox
             ? configDefaultShowButtonWaveformCheckbox.checked
             : false,
+        defaultShowCueMeter: configDefaultShowCueMeterCheckbox
+            ? configDefaultShowCueMeterCheckbox.checked
+            : true,
         
         audioOutputDeviceId: configAudioOutputDeviceSelect ? configAudioOutputDeviceSelect.value : 'default',
         audioMonitorOutputDeviceId: configAudioMonitorOutputDeviceSelect ? configAudioMonitorOutputDeviceSelect.value : 'default',
+        mainOutputVolume: configMainOutputVolume
+            ? clampOutputVolumePercent(parseInt(configMainOutputVolume.value, 10)) / 100
+            : (currentAppConfig.mainOutputVolume ?? 1),
+        monitorOutputVolume: configMonitorOutputVolume
+            ? clampOutputVolumePercent(parseInt(configMonitorOutputVolume.value, 10)) / 100
+            : (currentAppConfig.monitorOutputVolume ?? 1),
         routeShowPlaybackToMonitor: configRouteShowPlaybackToMonitorCheckbox ? configRouteShowPlaybackToMonitorCheckbox.checked : false,
         
         // theme setting is not directly edited here, but preserved if it exists
@@ -680,6 +968,8 @@ async function forceLoadAndApplyAppConfiguration() {
         populateConfigSidebar(loadedConfig);
         syncAppConfigToAudioController(loadedConfig);
         await loadAudioOutputDevices();
+        syncOutputDiagnosticsDevices();
+        setupAudioOutputDiagnostics();
         await applyAudioRoutingFromConfig(loadedConfig);
         return loadedConfig; 
     } catch (error) {

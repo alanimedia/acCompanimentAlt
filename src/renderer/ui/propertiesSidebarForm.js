@@ -144,6 +144,14 @@ function collectFormData(activePropertiesCueId, domElements, stagedPlaylistItems
             if (mode === 'hide') return false;
             return null;
         })(),
+        showCueMeter: (() => {
+            const mode = domElements.propShowCueMeterSelect
+                ? domElements.propShowCueMeterSelect.value
+                : 'default';
+            if (mode === 'show') return true;
+            if (mode === 'hide') return false;
+            return null;
+        })(),
     };
 
     return formData;
@@ -281,6 +289,15 @@ function populateFormWithCueData(cue, domElements, setStagedPlaylistItems, rende
             domElements.propShowButtonWaveformSelect.value = 'hide';
         } else {
             domElements.propShowButtonWaveformSelect.value = 'default';
+        }
+    }
+    if (domElements.propShowCueMeterSelect) {
+        if (cue.showCueMeter === true) {
+            domElements.propShowCueMeterSelect.value = 'show';
+        } else if (cue.showCueMeter === false) {
+            domElements.propShowCueMeterSelect.value = 'hide';
+        } else {
+            domElements.propShowCueMeterSelect.value = 'default';
         }
     }
     

@@ -465,7 +465,7 @@ function syncLanePlayhead(cueId, payload) {
     const now = performance.now();
 
     if (lane.volumeEl && document.activeElement !== lane.volumeEl) {
-        const vol = typeof payload?.volume === 'number' ? payload.volume : (cue?.volume ?? 1);
+        const vol = lane.cue?.volume !== undefined ? lane.cue.volume : 1;
         lane.volumeEl.value = String(Math.round(Math.max(0, Math.min(1, vol)) * 100));
     }
 

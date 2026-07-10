@@ -2,6 +2,9 @@
  * Time update and trim end management for playback instances
  */
 
+import { updateMainOutputLiveLevel } from './audioOutputDiagnostics.js';
+import { peakToDbfs } from './audioLoudnessMeter.js';
+
 /**
  * Create and manage time update interval for a playing sound
  * @param {string} cueId - The cue ID
@@ -117,12 +120,22 @@ export function createTimeUpdateInterval(cueId, sound, playingState, currentItem
                         peak = abs;
                     }
                 }
+                const volume = typeof sound.volume === 'function' ? Math.max(0, Math.min(1, sound.volume())) : 1;
+                const effectivePeak = peak * volume;
                 const prevMax = typeof playingState.meterCalibrationMax === 'number' ? playingState.meterCalibrationMax : 0.2;
                 const decayedMax = prevMax * 0.995;
-                const newMax = Math.max(decayedMax, peak, 0.05);
+                const newMax = Math.max(decayedMax, effectivePeak, 0.05);
                 playingState.meterCalibrationMax = newMax;
-                const normalizedPeak = newMax > 0 ? Math.min(1, peak / newMax) : 0;
-                audioControllerContext.cueGridAPI.updateCueMeterLevel(cueId, normalizedPeak, { immediate: false });
+                const normalizedPeak = newMax > 0 ? Math.min(1, effectivePeak / newMax) : 0;
+                playingState.lastMeterPeak = effectivePeak;
+                playingState.lastMeterLevel = normalizedPeak;
+                playingState.lastMeterDbfs = peakToDbfs(effectivePeak);
+                audioControllerContext.cueGridAPI.updateCueMeterLevel(cueId, normalizedPeak, {
+                    immediate: false,
+                    meterDbfs: playingState.lastMeterDbfs,
+                    isPlaying: true
+                });
+                updateMainOutputLiveLevel(effectivePeak);
             } catch (meterError) {
                 console.warn(`[METER_DEBUG ${cueId}] Error updating analyser meter:`, meterError);
             }

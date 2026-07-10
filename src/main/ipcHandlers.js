@@ -170,7 +170,10 @@ function initialize(application, mainWin, cueMgrModule, appCfgManager, wsMgr, ws
                     currentItemRemainingTimeS: payload.remainingTimeSec, 
                     playlistItemName: payload.playlistItemName, 
                     nextPlaylistItemName: payload.nextPlaylistItemName, 
-                    knownDurationS: payload.originalKnownDuration || 0 
+                    knownDurationS: payload.originalKnownDuration || 0,
+                    isFadingIn: !!payload.isFadingIn,
+                    isFadingOut: !!payload.isFadingOut,
+                    fadeTimeRemainingMs: typeof payload.fadeTimeRemainingMs === 'number' ? payload.fadeTimeRemainingMs : 0
                 }
             };
             httpServerRef.broadcastToRemotes(remoteCueUpdate);

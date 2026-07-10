@@ -17,6 +17,7 @@ let propVolumeSlider, propVolumeValueDisplay;
 let propEnableDuckingCheckbox, propDuckingLevelInput, propDuckingLevelValueSpan, propIsDuckingTriggerCheckbox;
 let propButtonColorInput, propButtonColorResetBtn;
 let propShowButtonWaveformSelect;
+let propShowCueMeterSelect;
 let propBrowseAudioFileBtn;
 
 /**
@@ -57,6 +58,7 @@ function cachePropertiesSidebarDOMElements() {
     propButtonColorInput = document.getElementById('propButtonColor');
     propButtonColorResetBtn = document.getElementById('propButtonColorReset');
     propShowButtonWaveformSelect = document.getElementById('propShowButtonWaveformMode');
+    propShowCueMeterSelect = document.getElementById('propShowCueMeterMode');
     propBrowseAudioFileBtn = document.getElementById('propBrowseAudioFileBtn');
 
     // Set up volume slider display
@@ -105,6 +107,7 @@ function getDOMElement(elementName) {
         propButtonColorInput,
         propButtonColorResetBtn,
         propShowButtonWaveformSelect,
+        propShowCueMeterSelect,
         propBrowseAudioFileBtn
     };
     

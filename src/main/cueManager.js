@@ -512,6 +512,9 @@ async function addOrUpdateProcessedCue(cueData, workspacePath, options = {}) {
     showButtonWaveform: mergedCueData.showButtonWaveform === true
         ? true
         : (mergedCueData.showButtonWaveform === false ? false : null),
+    showCueMeter: mergedCueData.showCueMeter === true
+        ? true
+        : (mergedCueData.showCueMeter === false ? false : null),
   };
 
   const normalizedCue = normalizeCueAudioPaths(baseCue, workspaceDir);

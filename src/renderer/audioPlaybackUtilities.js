@@ -2,7 +2,7 @@
 // Utility functions for audio playback management
 
 import { log } from './audioPlaybackLogger.js';
-import { cleanupAllResources } from './audioPlaybackUtils.js';
+import { cleanupAllResources, ensurePlayingStateOriginalVolume } from './audioPlaybackUtils.js';
 import { _cuePlaylistAtPosition } from './audioPlaybackPlaylist.js';
 import { scheduleTrimEndEnforcement, createTimeUpdateInterval } from './playbackTimeManager.js';
 import { syncMonitorSeek, syncMonitorVolume } from './playbackMonitorOutput.js';
@@ -329,6 +329,8 @@ export function stopAllCues(options = { exceptCueId: null, useFade: true }, cont
                 
                 if (fadeOutTime > 0) {
                     console.log(`[STOP_ALL_DEBUG] Applying ${fadeOutTime}ms fade to sound ${soundId}`);
+                    const cueForVolume = getGlobalCueByIdRef ? getGlobalCueByIdRef(cueId) : null;
+                    ensurePlayingStateOriginalVolume(playingState, cueForVolume);
                     // Only visualize fade if this is the active state and the sound is actually playing (audible)
                     const isActiveState = currentlyPlaying[cueId] && currentlyPlaying[cueId] === playingState;
                     const isAudible = typeof sound.playing === 'function' && sound.playing() && sound.volume() > 0.0001;

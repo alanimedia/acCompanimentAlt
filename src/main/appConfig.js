@@ -28,6 +28,8 @@ const DEFAULT_CONFIG = {
   crossfadeTime: 2000, // Default crossfade duration in ms
   audioOutputDeviceId: 'default',
   audioMonitorOutputDeviceId: 'default',
+  mainOutputVolume: 1,
+  monitorOutputVolume: 1,
   routeShowPlaybackToMonitor: false,
   theme: 'system', // 'light', 'dark', or 'system'
   // WebSocket Server Settings for Companion
@@ -41,6 +43,7 @@ const DEFAULT_CONFIG = {
   mainWaveformEnabled: true, // Show resizable waveform panel below cue grid
   mainWaveformHeight: 140, // Height in pixels for main waveform panel
   defaultShowButtonWaveform: false, // Default mini waveform on cue buttons; per-cue can override
+  defaultShowCueMeter: true, // Level meter on cue cards while playing; per-cue can override
 };
 
 // Function to explicitly set the directory for the config file.
