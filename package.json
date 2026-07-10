@@ -1,6 +1,6 @@
 {
   "name": "accompaniment",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "A soundboard app",
   "main": "main.js",
   "scripts": {
@@ -55,7 +55,8 @@
       {
         "provider": "github",
         "owner": "alanimedia",
-        "repo": "acCompanimentAlt"
+        "repo": "acCompanimentAlt",
+        "releaseType": "release"
       }
     ],
     "mac": {

@@ -54,6 +54,8 @@ function initialize(mainWindow) {
     initialized = true;
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
+    // Unsigned CI builds: skip Authenticode verification so updates can install.
+    autoUpdater.verifyUpdateCodeSignature = false;
     autoUpdater.logger = {
         info: (message) => logger.info(`AutoUpdater: ${message}`),
         warn: (message) => logger.warn(`AutoUpdater: ${message}`),

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.2
+
+### Fixed
+- GitHub Releases now publish as **public** releases (electron-builder defaulted to draft-only, which hid installers and broke `electron-updater`)
+- Windows in-app updater skips Authenticode verification for unsigned CI builds so download/install can complete
+- CI adds a final step to ensure tagged releases are not left as drafts
+
+### Changed
+- Removed Cursor co-author trailers from recent commit history
+
 ## 1.9.1
 
 ### Changed

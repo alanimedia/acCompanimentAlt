@@ -1,0 +1,10 @@
+---
+description: Never add Cursor attribution to commits or release notes
+alwaysApply: true
+---
+
+# No Cursor attribution
+
+- Never add `Co-authored-by: Cursor` or any Cursor/agent attribution to commit messages, tags, changelogs, or release notes.
+- Commits should only list human authors for this project.
+- When creating git commits, use a clean message with no co-author trailers unless the user explicitly names a real person.
