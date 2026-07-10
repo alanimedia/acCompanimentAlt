@@ -28,43 +28,23 @@ AV Cueboard talks to Companion over WebSocket (default port **8877**).
 
 When the module is listed on the [Connections](https://bitfocus.io/connections) page, add **Alani Media → AVCueboard**, set the host IP and port, then import presets or assign **Trigger** actions.
 
-Until Bitfocus approves the store listing, install the module manually (below).
+Until Bitfocus approves the store listing, install the packaged module manually (below).
 
-### Manual module install (until store approval)
+### Manual module install — Companion 4.x (recommended)
 
-Companion 3+ can load modules from a local **developer modules** folder.
+No developer mode or Node.js required on the Companion machine.
 
-1. **Create a folder** for custom modules, e.g. `C:\companion-module-dev` (Windows) or `~/companion-module-dev` (macOS/Linux).
+1. Download the packaged module:  
+   **[alanimedia-avcueboard-1.10.0.tgz](https://github.com/alanimedia/avcueboard-companion-module/raw/main/packages/alanimedia-avcueboard-1.10.0.tgz)**  
+   (also listed on the [companion module repo](https://github.com/alanimedia/avcueboard-companion-module))
+2. Open Companion Admin → **Modules**.
+3. **Import / Install custom module** and select the `.tgz`.
+4. **Connections** → add **Alani Media → AVCueboard**.
+5. Host: IP of the AV Cueboard PC (`127.0.0.1` if same machine). Port: **8877**.
 
-2. **Clone the module** into that folder:
-   ```bash
-   cd C:\companion-module-dev
-   git clone https://github.com/alanimedia/avcueboard-companion-module.git
-   cd avcueboard-companion-module
-   ```
+### Manual module install — developer path (optional)
 
-3. **Install and build** (requires [Node.js](https://nodejs.org/) 18+ and [Yarn 1](https://classic.yarnpkg.com/)):
-   ```bash
-   npm install --global yarn
-   yarn install
-   yarn build
-   ```
-
-4. **Point Companion at the parent folder**
-   - Open the Companion launcher
-   - Click the **cog** (settings)
-   - Set **Developer modules path** to `C:\companion-module-dev` (the folder that *contains* `avcueboard-companion-module`, not the module folder itself)
-   - Launch / restart Companion
-
-5. **Add the connection**
-   - In Companion Admin → Connections, add **Alani Media → AVCueboard**
-   - Host: IP of the machine running AV Cueboard (`127.0.0.1` if same PC)
-   - Port: **8877** (must match App Config → WebSocket)
-
-6. Import presets or bind Stream Deck buttons to per-cue **Trigger** actions.
-
-Module source: [alanimedia/avcueboard-companion-module](https://github.com/alanimedia/avcueboard-companion-module)  
-Bitfocus docs: [Local / developer modules](https://companion.free/for-developers/module-development/local-modules/)
+For live module development, use Companion’s **Developer modules path** instead. Clone [avcueboard-companion-module](https://github.com/alanimedia/avcueboard-companion-module), run `yarn install` / `yarn build`, and point the launcher cog at the **parent** folder. Details: [Bitfocus local modules](https://companion.free/for-developers/module-development/local-modules/).
 
 > HTTP remote (port **3000**) is the web/iPad UI — not the Companion WebSocket port.
 

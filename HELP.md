@@ -243,7 +243,9 @@ Open the URL from **Settings → Remote Control → Access links** (default port
 ## Bitfocus Companion
 
 1. Run AV Cueboard with WebSocket enabled (default **8877**).
-2. Install the Companion module (from the Connections store when available, or [manually](README.md#manual-module-install-until-store-approval) until then).
+2. Install the Companion module:
+   - **Companion 4.x:** download [alanimedia-avcueboard-1.10.0.tgz](https://github.com/alanimedia/avcueboard-companion-module/raw/main/packages/alanimedia-avcueboard-1.10.0.tgz) and import it under **Modules** (see [app README](README.md#manual-module-install--companion-4x-recommended)).
+   - **Connections store:** when available, add **Alani Media → AVCueboard** from the store.
 3. In Companion, add **Alani Media → AVCueboard**.
 4. Set host IP and WebSocket port.
 5. Use per-cue **Trigger** actions (stable cue IDs) for reliable targeting.
