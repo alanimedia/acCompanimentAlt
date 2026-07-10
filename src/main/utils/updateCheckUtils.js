@@ -1,6 +1,7 @@
 const https = require('https');
 const { dialog, shell } = require('electron');
 const logger = require('./logger');
+const branding = require('../../shared/branding');
 
 function compareVersions(v1, v2) {
     const parts1 = String(v1).split('.').map(Number);
@@ -23,7 +24,7 @@ function getGitHubRepoSlug() {
     if (match) {
         return `${match[1]}/${match[2]}`;
     }
-    return 'alanimedia/acCompanimentAlt';
+    return branding.repo;
 }
 
 function pickReleaseDownloadAsset(release) {
@@ -52,7 +53,7 @@ function fetchLatestGitHubRelease(repoSlug) {
             path: `/repos/${repoSlug}/releases/latest`,
             method: 'GET',
             headers: {
-                'User-Agent': 'acCompaniment',
+                'User-Agent': branding.displayName,
                 Accept: 'application/vnd.github+json'
             }
         };

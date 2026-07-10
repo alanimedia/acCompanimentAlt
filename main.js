@@ -3,6 +3,8 @@ const path = require('node:path');
 const fs = require('fs-extra'); // For file system operations
 const logger = require('./src/main/utils/logger');
 const autoUpdaterService = require('./src/main/autoUpdaterService');
+const branding = require('./src/shared/branding');
+const { migrateUserDataIfNeeded } = require('./src/main/userDataMigration');
 
 // Import main process modules
 logger.info('MAIN_JS: Importing cueManager...');
@@ -71,7 +73,7 @@ let isDev = process.env.NODE_ENV !== 'production';
 async function createWindow() {
   logger.info('MAIN_JS: createWindow START');
   try {
-    // Reduced verbose logging
+    migrateUserDataIfNeeded();
     await appConfigManager.loadConfig();
 
     const currentConfig = appConfigManager.getConfig(); // getConfig returns a copy
@@ -89,7 +91,7 @@ async function createWindow() {
         nodeIntegration: false,
       },
       icon: path.join(__dirname, 'assets', 'icons', 'icon.png'),
-      title: "acCompaniment"
+      title: branding.displayName
     });
 
 
@@ -346,10 +348,17 @@ function getMenuTemplate(mainWindow, cueManager, workspaceManager, appConfigMana
           type: 'separator'
         },
         {
+          label: 'User Guide',
+          click: async () => {
+            const { shell } = require('electron');
+            await shell.openExternal(`${branding.repoUrl}/blob/main/HELP.md`);
+          }
+        },
+        {
           label: 'Learn More',
           click: async () => {
             const { shell } = require('electron');
-            await shell.openExternal('https://github.com/alanimedia/acCompanimentAlt');
+            await shell.openExternal(branding.companyUrl);
           }
         }
       ]
@@ -430,7 +439,7 @@ app.on('will-quit', () => {
 logger.info('MAIN_JS: will-quit listener attached');
 
 if (process.platform === 'darwin') {
-  app.setName('acCompaniment Soundboard');
+  app.setName(branding.displayName);
 }
 logger.info('MAIN_JS: Script end');
 

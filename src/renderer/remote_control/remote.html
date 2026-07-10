@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>acCompaniment Remote</title>
+    <title>AV Cueboard Remote</title>
     <link rel="icon" type="image/png" href="../../assets/icons/icon.png">
     <style>
         body {
@@ -1844,8 +1844,8 @@
     <div class="remote-header">
         <div class="remote-header-row-main">
             <div class="remote-header-left">
-                <img src="../../assets/icons/icon.png" alt="acCompaniment Icon" class="remote-header-icon">
-                <h1>acCompaniment</h1>
+                <img src="../../assets/icons/icon.png" alt="AV Cueboard" class="remote-header-icon">
+                <h1>AV Cueboard</h1>
             </div>
             <div class="remote-header-center">
                 <div class="mode-toggle" role="group" aria-label="Remote mode">
@@ -1969,9 +1969,9 @@
             </details>
 
             <details class="config-section">
-                <summary class="config-section-title">New Cue Defaults</summary>
+                <summary class="config-section-title">Cue Defaults (This Workspace)</summary>
                 <div class="config-section-body">
-                    <p class="config-section-lead">Applied when new cues are created.</p>
+                    <p class="config-section-lead">Saved with this workspace. Used for new cues and cues on <strong>Use app default</strong> in Properties.</p>
                     <div class="form-group">
                         <label for="cfgDefaultCueType">Default cue type</label>
                         <select id="cfgDefaultCueType">
@@ -1993,8 +1993,8 @@
                         <label><input type="checkbox" id="cfgDefaultLoop"> Loop single-file cues by default</label>
                     </div>
                     <div class="form-group">
-                        <label for="cfgDefaultRetrigger">Retrigger behavior</label>
-                        <p class="retrigger-legend-intro">When a cue is pressed while already playing or paused.</p>
+                        <label for="cfgDefaultRetrigger">Default retrigger behavior</label>
+                        <p class="retrigger-legend-intro">For cues on <strong>Use app default</strong> — when pressed while already playing or paused.</p>
                         <select id="cfgDefaultRetrigger"></select>
                         <p id="cfgDefaultRetriggerHelp" class="retrigger-help"></p>
                         <details class="retrigger-legend">
@@ -2181,7 +2181,7 @@
         }
 
         ws.onopen = () => {
-            console.log('Connected to acCompaniment WebSocket');
+            console.log('Connected to AV Cueboard WebSocket');
             ws.send(JSON.stringify({ action: 'request_all_cues_for_remote' }));
             ws.send(JSON.stringify({ action: 'request_audio_devices' }));
         };
@@ -4498,7 +4498,7 @@
             }
         }
 
-        const REMOTE_SECTION_DRAG_MIME = 'application/x-accompaniment-section-id';
+        const REMOTE_SECTION_DRAG_MIME = 'application/x-avcueboard-section-id';
 
         function isRemoteSectionDragEvent(event) {
             return event.dataTransfer?.types?.includes(REMOTE_SECTION_DRAG_MIME);
@@ -5269,7 +5269,7 @@
                 startRemoteDragAutoScroll(remoteMain);
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', draggedEditCueId);
-                e.dataTransfer.setData('application/x-accompaniment-cue-ids', draggedEditCueId);
+                e.dataTransfer.setData('application/x-avcueboard-cue-ids', draggedEditCueId);
                 card.classList.add('dragging', 'dragging-cue-group');
                 cueGridRemote.classList.add('drag-active');
             });

@@ -9,6 +9,7 @@ const cueManager = require('./cueManager');
 const { resolveAudioFilePath, isLikelyIncompletePath } = require('./utils/audioPathUtils');
 const { getAudioFileDuration: getAudioFileDurationUtil } = require('./utils/audioFileUtils');
 const { v4: uuidv4 } = require('uuid');
+const branding = require('../shared/branding');
 
 
 let appRef; // To store the app instance
@@ -753,10 +754,10 @@ function initialize(application, mainWin, cueMgrModule, appCfgManager, wsMgr, ws
             return new Promise((resolve) => {
                 const options = {
                     hostname: 'api.github.com',
-                    path: '/repos/mko1989/acCompaniment/releases/latest',
+                    path: `/repos/${branding.repo}/releases/latest`,
                     method: 'GET',
                     headers: {
-                        'User-Agent': 'acCompaniment'
+                        'User-Agent': branding.displayName
                     }
                 };
 

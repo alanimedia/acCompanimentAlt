@@ -1,7 +1,7 @@
 #!/bin/sh
-# Reject Cursor co-author trailers on commits.
-if grep -qiE '^Co-authored-by:.*cursor' "$1"; then
-  echo "ERROR: Remove 'Co-authored-by: Cursor' from the commit message." >&2
-  echo "This repository must not attribute Cursor on commits or releases." >&2
+# Final guard: reject Cursor/agent attribution trailers on commits.
+if grep -qiE '^(Co-authored-by:.*(cursor|cursoragent)|Made-with:.*cursor)' "$1"; then
+  echo "ERROR: Cursor attribution is not allowed in this repository." >&2
+  echo "Remove Co-authored-by / Made-with Cursor lines from the commit message." >&2
   exit 1
 fi

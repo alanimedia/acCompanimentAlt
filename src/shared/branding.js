@@ -1,0 +1,17 @@
+module.exports = {
+  displayName: 'AV Cueboard',
+  slug: 'avcueboard',
+  companyName: 'Alani Media',
+  companyUrl: 'https://alani.media',
+  authorName: 'Omar Gadahn',
+  authorEmail: 'omar@alanimedia.net',
+  repo: 'alanimedia/avcueboard',
+  repoUrl: 'https://github.com/alanimedia/avcueboard',
+  moduleRepo: 'bitfocus/companion-module-alanimedia-avcueboard',
+  moduleRepoUrl: 'https://github.com/bitfocus/companion-module-alanimedia-avcueboard',
+  moduleId: 'alanimedia-avcueboard',
+  tagline: 'Live audio cue playback for Bitfocus Companion and Stream Deck',
+  legacyAppNames: ['acCompaniment', 'accompaniment'],
+  mimeCueIds: 'application/x-avcueboard-cue-ids',
+  mimeSectionId: 'application/x-avcueboard-section-id',
+};

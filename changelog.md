@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.10.0 — AV Cueboard v1
+
+### Added
+- Full rebrand from **acCompaniment** to **AV Cueboard** (Alani Media)
+- New app icon (cue grid + waveform)
+- **[HELP.md](HELP.md)** — user guide aligned with current UI (sections, meters, dual outputs, remote, relink, etc.)
+- Help menu → **User Guide**
+- `src/shared/branding.js` centralizes product identity strings
+- One-time **userData migration** from legacy `acCompaniment` / `accompaniment` folders on first launch
+- `LICENSE` and `NOTICE` with fork credit to Marcin Wardecki / [mko1989/acCompaniment](https://github.com/mko1989/acCompaniment)
+- Git hooks to strip/block Cursor co-author attribution on commits
+
+### Changed
+- `appId` → `com.alanimedia.avcueboard`; `productName` → **AV Cueboard**
+- GitHub publish target → `alanimedia/avcueboard`
+- Window titles, web remote, menus, and updater copy use **AV Cueboard**
+- Internal drag-drop MIME types → `application/x-avcueboard-*`
+- Help → **User Guide** opens [HELP.md](HELP.md) on GitHub; in-app **Help** menu includes User Guide
+- Companion module identity → **Alani Media → AVCueboard** (`alanimedia-avcueboard`)
+
+### Upgrade note
+Install over acCompaniment **1.9.x**; settings migrate automatically. In Companion, add a fresh **Alani Media → AVCueboard** connection (do not use the legacy HighPass module listing).
+
 ## 1.9.3
 
 ### Fixed

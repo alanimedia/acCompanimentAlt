@@ -5,6 +5,7 @@ alwaysApply: true
 
 # No Cursor attribution
 
-- Never add `Co-authored-by: Cursor` or any Cursor/agent attribution to commit messages, tags, changelogs, or release notes.
+- Never add `Co-authored-by: Cursor`, `Made-with: Cursor`, or any Cursor/agent attribution to commit messages, tags, changelogs, or release notes.
 - Commits should only list human authors for this project.
 - When creating git commits, use a clean message with no co-author trailers unless the user explicitly names a real person.
+- Do not pass `--trailer` for Cursor attribution. `.githooks/` strips and rejects these lines on every commit (`npm run setup:hooks` after clone).

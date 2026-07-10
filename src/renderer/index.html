@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>acCompaniment</title>
+    <title>AV Cueboard</title>
     <meta http-equiv="Content-Security-Policy" content="script-src 'self';">
     <link rel="stylesheet" href="styles/_variables.css">
     <link rel="stylesheet" href="styles/base.css">
@@ -97,9 +97,9 @@
                     </details>
 
                     <details class="config-section">
-                        <summary class="config-section-title">New Cue Defaults</summary>
+                        <summary class="config-section-title">Cue Defaults (This Workspace)</summary>
                         <div class="config-section-body">
-                            <p class="small-text config-section-lead">Applied when new cues are created.</p>
+                            <p class="small-text config-section-lead">Saved with this workspace in <code>.ac/config/</code>. Used when you <strong>create new cues</strong> and for existing cues set to <strong>Use app default</strong> in Properties (retrigger, loop, meters, etc.). Does not change cues that already have their own override.</p>
                             <div class="config-field-grid">
                                 <div class="form-group">
                                     <label for="defaultFadeIn">Fade in (ms)</label>
@@ -114,8 +114,8 @@
                                 <label for="defaultLoop"><input type="checkbox" id="defaultLoop" name="defaultLoop"> Loop single-file cues by default</label>
                             </div>
                             <div class="form-group">
-                                <label for="retriggerBehavior">Retrigger behavior</label>
-                                <p class="small-text">When a cue is pressed while already playing or paused.</p>
+                                <label for="retriggerBehavior">Default retrigger behavior</label>
+                                <p class="small-text">When a cue on <strong>Use app default</strong> is pressed while already playing or paused.</p>
                                 <select id="retriggerBehavior"></select>
                                 <p id="retriggerBehaviorHelp" class="small-text retrigger-help"></p>
                                 <details class="retrigger-legend">
@@ -198,8 +198,8 @@
                 <div id="topBar">
                     <div class="top-bar">
                         <div class="title-container">
-                            <img src="../../assets/icons/icon.png" alt="acCompaniment Icon" class="app-icon-title">
-                            <h1>acCompaniment</h1>
+                            <img src="../../assets/icons/icon.png" alt="AV Cueboard" class="app-icon-title">
+                            <h1>AV Cueboard</h1>
                         </div>
                         <div class="mode-toggle" role="group" aria-label="App mode">
                             <button type="button" id="modePlaybackBtn" class="mode-btn" title="Playback mode — trigger cues">Playback</button>

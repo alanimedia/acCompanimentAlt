@@ -20,8 +20,8 @@ function setupGlobalDragDropListeners() {
 }
 
 function handleDragOver(event) {
-    if (event.dataTransfer?.types?.includes('application/x-accompaniment-cue-ids')
-        || event.dataTransfer?.types?.includes('application/x-accompaniment-section-id')
+    if (event.dataTransfer?.types?.includes('application/x-avcueboard-cue-ids')
+        || event.dataTransfer?.types?.includes('application/x-avcueboard-section-id')
         || document.querySelector('.cue-wrapper.dragging-cue, .cue-wrapper.dragging-cue-group, .cue-edit-card.dragging, .cue-section-block.dragging-section')) {
         return;
     }
@@ -44,8 +44,8 @@ function handleDragLeave(event) {
 }
 
 function handleDrop(event) {
-    if (event.dataTransfer?.types?.includes('application/x-accompaniment-cue-ids')
-        || event.dataTransfer?.types?.includes('application/x-accompaniment-section-id')
+    if (event.dataTransfer?.types?.includes('application/x-avcueboard-cue-ids')
+        || event.dataTransfer?.types?.includes('application/x-avcueboard-section-id')
         || document.querySelector('.cue-wrapper.dragging-cue, .cue-wrapper.dragging-cue-group, .cue-edit-card.dragging, .cue-section-block.dragging-section')) {
         return;
     }

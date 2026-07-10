@@ -354,7 +354,7 @@ function bindCueWrapperDragReorder(cueWrapper, cue) {
         startDragAutoScroll(document.getElementById('mainDropArea'));
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', cue.id);
-        e.dataTransfer.setData('application/x-accompaniment-cue-ids', activeDragCueIds.join(','));
+        e.dataTransfer.setData('application/x-avcueboard-cue-ids', activeDragCueIds.join(','));
         markDragWrappers(activeDragCueIds, cue.id);
         cueGridContainer.classList.add('drag-active');
     });

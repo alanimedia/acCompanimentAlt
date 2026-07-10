@@ -2,6 +2,7 @@ const { dialog, app } = require('electron');
 const fs = require('fs-extra'); // Use fs-extra for ensureDirSync
 const path = require('path');
 const logger = require('./utils/logger');
+const branding = require('../shared/branding');
 
 // Assume these modules are passed in during initialization
 let appConfigManager;
@@ -11,6 +12,40 @@ let mainWindow; // For sending IPC messages and dialog parent
 let currentWorkspaceDirectory = null; // Path to the currently open workspace directory
 const DEFAULT_CUES_FILENAME = 'cues.json';
 const WORKSPACE_CONFIG_SUBDIR = path.join('.ac', 'config'); // '.ac/config'
+const WORKSPACE_APP_CONFIG_FILE = 'appConfig.json';
+
+/** Fields copied from global appConfig when a workspace has no .ac/config/appConfig.json yet. */
+function getWorkspaceDefaultSeedFromGlobal(globalConfig) {
+    if (!globalConfig) return {};
+    const keys = [
+        'defaultCueType',
+        'defaultFadeInTime',
+        'defaultFadeOutTime',
+        'defaultLoopSingleCue',
+        'defaultRetriggerBehavior',
+        'defaultStopAllBehavior',
+        'defaultStopAllFadeOutTime',
+        'crossfadeTime',
+        'mainWaveformEnabled',
+        'mainWaveformHeight',
+        'defaultShowButtonWaveform',
+        'defaultShowCueMeter',
+        'audioOutputDeviceId',
+        'audioMonitorOutputDeviceId',
+        'mainOutputVolume',
+        'monitorOutputVolume',
+        'routeShowPlaybackToMonitor',
+        'httpRemoteEnabled',
+        'httpRemotePort',
+    ];
+    const seed = {};
+    for (const key of keys) {
+        if (globalConfig[key] !== undefined) {
+            seed[key] = globalConfig[key];
+        }
+    }
+    return seed;
+}
 
 // To be called from main.js
 async function initialize(appConfManager, cManager, mainWin) {
@@ -91,7 +126,7 @@ async function newWorkspace() {
 
         currentWorkspaceDirectory = null;
         if (mainWindow) {
-            mainWindow.setTitle('acCompaniment - Untitled Workspace');
+            mainWindow.setTitle(`${branding.displayName} - Untitled Workspace`);
             if (typeof mainWindow.setRepresentedFilename === 'function') {
                 mainWindow.setRepresentedFilename('');
             }
@@ -135,13 +170,17 @@ async function openWorkspace(workspaceToOpenPath = null, isInitializing = false)
 
     const workspaceConfigDir = path.join(newWorkspacePath, WORKSPACE_CONFIG_SUBDIR);
     const workspaceCuesFilePath = path.join(newWorkspacePath, DEFAULT_CUES_FILENAME);
+    const workspaceConfigFile = path.join(workspaceConfigDir, WORKSPACE_APP_CONFIG_FILE);
+    const isNewWorkspaceConfig = !fs.existsSync(workspaceConfigFile);
 
     try {
         fs.ensureDirSync(workspaceConfigDir); // Ensure .ac/config directory exists
         logger.info(`[WorkspaceManager openWorkspace] Ensured workspace config dir exists: ${workspaceConfigDir}`);
 
-        // 1. Save lastOpenedWorkspacePath to GLOBAL config
-        appConfigManager.setConfigDirectory(null); // Switch to global context
+        // 1. Load global config, then save lastOpenedWorkspacePath
+        appConfigManager.setConfigDirectory(null);
+        await appConfigManager.loadConfig();
+        const globalConfigSnapshot = appConfigManager.getConfig();
         const globalUpdateResult = await appConfigManager.updateConfig({ lastOpenedWorkspacePath: newWorkspacePath });
         if (globalUpdateResult.saved) {
             logger.info(`[WorkspaceManager openWorkspace] Saved lastOpenedWorkspacePath='${newWorkspacePath}' to global config.`);
@@ -156,11 +195,15 @@ async function openWorkspace(workspaceToOpenPath = null, isInitializing = false)
         // 3. Load workspace-specific config
         let workspaceConfig = await appConfigManager.loadConfig(); // Async load
 
-        // 4. Update workspace config with essential workspace-specific paths
+        // 4. Update workspace config with paths (seed from global on first open of this workspace)
         const workspaceUpdateData = {
             cuesFilePath: workspaceCuesFilePath,
-            lastOpenedWorkspacePath: newWorkspacePath
+            lastOpenedWorkspacePath: newWorkspacePath,
+            ...(isNewWorkspaceConfig ? getWorkspaceDefaultSeedFromGlobal(globalConfigSnapshot) : {}),
         };
+        if (isNewWorkspaceConfig) {
+            logger.info('[WorkspaceManager openWorkspace] Seeded new workspace config from global app defaults.');
+        }
         const workspaceUpdateResult = await appConfigManager.updateConfig(workspaceUpdateData);
         workspaceConfig = workspaceUpdateResult.config;
         logger.info('[WorkspaceManager openWorkspace] Workspace config updated with paths. Saved:', workspaceUpdateResult.saved);
@@ -171,7 +214,7 @@ async function openWorkspace(workspaceToOpenPath = null, isInitializing = false)
 
         currentWorkspaceDirectory = newWorkspacePath;
         if (mainWindow) {
-            mainWindow.setTitle(`acCompaniment - ${path.basename(newWorkspacePath)}`);
+            mainWindow.setTitle(`${branding.displayName} - ${path.basename(newWorkspacePath)}`);
             if (typeof mainWindow.setRepresentedFilename === 'function') {
                 mainWindow.setRepresentedFilename(newWorkspacePath);
             }
@@ -287,7 +330,7 @@ async function saveWorkspaceAs() {
         if (cuesSaved && workspaceSaveResult.saved) {
             currentWorkspaceDirectory = newWorkspacePath;
             if (mainWindow) {
-                mainWindow.setTitle(`acCompaniment - ${path.basename(newWorkspacePath)}`);
+                mainWindow.setTitle(`${branding.displayName} - ${path.basename(newWorkspacePath)}`);
                 if (typeof mainWindow.setRepresentedFilename === 'function') {
                     mainWindow.setRepresentedFilename(newWorkspacePath);
                 }

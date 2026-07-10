@@ -2,6 +2,7 @@ const { app, dialog } = require('electron');
 const fs = require('fs-extra');
 const path = require('path');
 const logger = require('./utils/logger');
+const branding = require('../shared/branding');
 const { showUpdateCheckDialog, compareVersions } = require('./utils/updateCheckUtils');
 
 let autoUpdater = null;
@@ -160,7 +161,7 @@ function initialize(mainWindow) {
             type: 'info',
             title: 'Update Ready',
             message: 'The update has been downloaded.',
-            detail: 'Restart acCompaniment to install it now? Nothing will be installed unless you confirm.',
+            detail: `Restart ${branding.displayName} to install it now? Nothing will be installed unless you confirm.`,
             buttons: ['Restart and Install', 'Not Now'],
             defaultId: 1,
             cancelId: 1,

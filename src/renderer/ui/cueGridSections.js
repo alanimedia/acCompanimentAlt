@@ -55,7 +55,7 @@ export function createSectionBlock(section, {
         dragHandle.addEventListener('dragstart', (e) => {
             e.stopPropagation();
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('application/x-accompaniment-section-id', section.id);
+            e.dataTransfer.setData('application/x-avcueboard-section-id', section.id);
             block.classList.add('dragging-section');
             const container = gridContainer || block.closest('#cueGridContainer');
             container?.classList.add('section-drag-active');
@@ -237,7 +237,7 @@ export function getActiveDragWrappers(container = document, dataTransfer = null)
     if (primary) return [primary];
 
     if (dataTransfer) {
-        const idsValue = dataTransfer.getData('application/x-accompaniment-cue-ids');
+        const idsValue = dataTransfer.getData('application/x-avcueboard-cue-ids');
         const cueIds = idsValue
             ? idsValue.split(',').filter(Boolean)
             : [dataTransfer.getData('text/plain')].filter(Boolean);
@@ -342,7 +342,7 @@ export function moveCueWrapperInSection(sectionBody, draggedWrapper, clientX, cl
     moveCueWrappersInSection(sectionBody, [draggedWrapper], clientX, clientY);
 }
 
-const SECTION_DRAG_MIME = 'application/x-accompaniment-section-id';
+const SECTION_DRAG_MIME = 'application/x-avcueboard-section-id';
 
 function isSectionDragEvent(event) {
     return event.dataTransfer?.types?.includes(SECTION_DRAG_MIME);
