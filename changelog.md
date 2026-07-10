@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.3
+
+### Fixed
+- Monitor / Preview output VU, dBFS, and LUFS now align with Show / Main when mirroring live playback (monitor meter follows the main bus instead of a hot HTML5 `captureStream` tap)
+- Waveform preview on the monitor output registers a proper gain-node meter tap (WebAudio backend)
+- Monitor metering no longer interrupts cue playback (reuse Howler audio context, safer analyser cleanup, deferred captureStream attach)
+- HTML5 monitor preview (`♪` button) applies captureStream level correction so readings match main-style meters
+- Config sidebar VU zone fallback gradient aligned to −48…0 dBFS scale
+
 ## 1.9.2
 
 ### Fixed

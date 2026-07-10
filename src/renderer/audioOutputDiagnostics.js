@@ -30,7 +30,14 @@ const channels = {
 
 const monitorLevelSources = new Map();
 const howlAnalyserMap = new WeakMap();
+const wavesurferAnalyserMap = new WeakMap();
+const monitorAnalyserSources = new Set();
 const activeTestContexts = new Set();
+
+const OUTPUT_ANALYSER_FFT_SIZE = 2048;
+const OUTPUT_ANALYSER_SMOOTHING = 0.5;
+// HTML5 captureStream taps in Chromium read ~10 dB hot vs WebAudio bus meters.
+const HTML5_CAPTURE_STREAM_CORRECTION = Math.pow(10, -10 / 20);
 
 let mainAnalyser = null;
 let mainAnalyserData = null;
@@ -41,6 +48,7 @@ let monitorMeterContext = null;
 let meterRafId = null;
 let onLevelsUpdate = null;
 let mainPlaybackPeak = 0;
+let mirroredMonitorPlaybackCount = 0;
 
 function clampLevel(value) {
     return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
@@ -71,10 +79,67 @@ function readAnalyserLevel(analyser, dataArrayRef) {
 }
 
 function getMonitorMeterContext() {
+    if (typeof Howler !== 'undefined' && Howler.ctx && Howler.ctx.state !== 'closed') {
+        return Howler.ctx;
+    }
     if (!monitorMeterContext || monitorMeterContext.state === 'closed') {
         monitorMeterContext = new AudioContext();
     }
     return monitorMeterContext;
+}
+
+function registerMonitorAnalyserTap(audioContext, sourceNode, isActive = () => true, { ownsSourceNode = false, signalCorrection = 1 } = {}) {
+    const weighting = createKWeightingChain(audioContext);
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = OUTPUT_ANALYSER_FFT_SIZE;
+    analyser.smoothingTimeConstant = OUTPUT_ANALYSER_SMOOTHING;
+    sourceNode.connect(weighting.input);
+    weighting.output.connect(analyser);
+
+    const entry = {
+        analyser,
+        dataArray: new Uint8Array(analyser.fftSize),
+        loudnessBuffer: { current: null },
+        loudnessTracker: createLoudnessTracker(),
+        isActive,
+        weighting,
+        ownsSourceNode,
+        sourceNode,
+        signalCorrection,
+        dispose() {
+            monitorAnalyserSources.delete(entry);
+            try { weighting.input.disconnect(); } catch (_) { /* ignore */ }
+            try { weighting.output.disconnect(); } catch (_) { /* ignore */ }
+            try { analyser.disconnect(); } catch (_) { /* ignore */ }
+            if (ownsSourceNode) {
+                try { sourceNode.disconnect(); } catch (_) { /* ignore */ }
+            }
+        }
+    };
+    monitorAnalyserSources.add(entry);
+    return entry;
+}
+
+function readMonitorBusLevels() {
+    let peak = 0;
+    let activeEntry = null;
+    monitorAnalyserSources.forEach((entry) => {
+        if (entry.isActive && !entry.isActive()) return;
+        const level = readTimeDomainPeak(entry.analyser, entry.dataArray) * (entry.signalCorrection || 1);
+        if (level > peak) {
+            peak = level;
+            activeEntry = entry;
+        }
+    });
+    return { peak, entry: activeEntry };
+}
+
+export function detachHowlOutputAnalyser(howl) {
+    const entry = howlAnalyserMap.get(howl);
+    if (entry) {
+        entry.dispose();
+        howlAnalyserMap.delete(howl);
+    }
 }
 
 export function attachHowlOutputAnalyser(howl) {
@@ -89,21 +154,97 @@ export function attachHowlOutputAnalyser(howl) {
             const ctx = getMonitorMeterContext();
             const stream = node.captureStream();
             const source = ctx.createMediaStreamSource(stream);
-            const analyser = ctx.createAnalyser();
-            analyser.fftSize = 512;
-            analyser.smoothingTimeConstant = 0.75;
-            source.connect(analyser);
-            howlAnalyserMap.set(howl, {
-                analyser,
-                dataArray: new Uint8Array(analyser.fftSize)
-            });
+            const entry = registerMonitorAnalyserTap(
+                ctx,
+                source,
+                () => typeof howl.playing === 'function' && howl.playing(),
+                { ownsSourceNode: true, signalCorrection: HTML5_CAPTURE_STREAM_CORRECTION }
+            );
+            howlAnalyserMap.set(howl, entry);
         } catch (error) {
             console.warn('audioOutputDiagnostics: Failed to attach Howl analyser:', error);
         }
     };
 
-    howl.on('play', attach);
+    howl.on('play', () => {
+        // Defer tap setup so captureStream cannot interrupt Howl play start.
+        setTimeout(attach, 0);
+    });
     if (howl.state && howl.state() === 'loaded') {
+        attach();
+    }
+    if (typeof howl.playing === 'function' && howl.playing()) {
+        attach();
+    }
+}
+
+export function detachWaveSurferOutputAnalyser(wavesurfer) {
+    const entry = wavesurferAnalyserMap.get(wavesurfer);
+    if (entry) {
+        entry.dispose();
+        wavesurferAnalyserMap.delete(wavesurfer);
+    }
+}
+
+function getWaveSurferGainNode(wavesurfer) {
+    const media = wavesurfer?.getMediaElement?.();
+    if (!media || typeof media.getGainNode !== 'function') return null;
+    return media.getGainNode();
+}
+
+export function attachWaveSurferOutputAnalyser(wavesurfer) {
+    if (!wavesurfer) return;
+
+    const attachFromMediaStream = () => {
+        if (wavesurferAnalyserMap.has(wavesurfer)) return;
+        const media = wavesurfer.getMediaElement?.();
+        if (!media || typeof media.captureStream !== 'function') return;
+
+        try {
+            const ctx = getMonitorMeterContext();
+            const stream = media.captureStream();
+            const source = ctx.createMediaStreamSource(stream);
+            const entry = registerMonitorAnalyserTap(
+                ctx,
+                source,
+                () => typeof wavesurfer.isPlaying === 'function' && wavesurfer.isPlaying(),
+                { ownsSourceNode: true, signalCorrection: HTML5_CAPTURE_STREAM_CORRECTION }
+            );
+            wavesurferAnalyserMap.set(wavesurfer, entry);
+        } catch (error) {
+            console.warn('audioOutputDiagnostics: Failed to attach WaveSurfer media analyser:', error);
+        }
+    };
+
+    const attach = () => {
+        if (wavesurferAnalyserMap.has(wavesurfer)) return;
+
+        const gainNode = getWaveSurferGainNode(wavesurfer);
+        if (gainNode) {
+            try {
+                const entry = registerMonitorAnalyserTap(
+                    gainNode.context,
+                    gainNode,
+                    () => typeof wavesurfer.isPlaying === 'function' && wavesurfer.isPlaying(),
+                    { ownsSourceNode: false }
+                );
+                wavesurferAnalyserMap.set(wavesurfer, entry);
+                return;
+            } catch (error) {
+                console.warn('audioOutputDiagnostics: Failed to attach WaveSurfer gain analyser:', error);
+            }
+        }
+
+        attachFromMediaStream();
+    };
+
+    const detach = () => {
+        detachWaveSurferOutputAnalyser(wavesurfer);
+    };
+
+    wavesurfer.on('play', attach);
+    wavesurfer.once('destroy', detach);
+    if (typeof wavesurfer.isPlaying === 'function' && wavesurfer.isPlaying()) {
         attach();
     }
 }
@@ -115,7 +256,18 @@ function readHowlAnalyserLevel(howl) {
     return readTimeDomainPeak(entry.analyser, entry.dataArray);
 }
 
+function readWaveSurferAnalyserLevel(wavesurfer) {
+    if (!wavesurfer || typeof wavesurfer.isPlaying !== 'function' || !wavesurfer.isPlaying()) return 0;
+    if (getMonitorOutputVolume() <= 0.001) return 0;
+    const entry = wavesurferAnalyserMap.get(wavesurfer);
+    if (!entry) return 0;
+    return readTimeDomainPeak(entry.analyser, entry.dataArray);
+}
+
 function getMonitorLiveLevel() {
+    const busPeak = readMonitorBusLevels().peak;
+    if (busPeak > 0) return busPeak;
+
     let peak = 0;
     monitorLevelSources.forEach((getLevel) => {
         try {
@@ -125,6 +277,14 @@ function getMonitorLiveLevel() {
         }
     });
     return peak;
+}
+
+/** Mirrored show playback uses the main bus meter (same program, monitor fader). */
+export function registerMirroredMonitorPlayback() {
+    mirroredMonitorPlaybackCount += 1;
+    return () => {
+        mirroredMonitorPlaybackCount = Math.max(0, mirroredMonitorPlaybackCount - 1);
+    };
 }
 
 export function updateMainOutputLiveLevel(level) {
@@ -206,13 +366,16 @@ function tickMeters() {
     const mainVol = getMainOutputVolume();
     const monitorVol = getMonitorOutputVolume();
 
-    const mainLiveLevel = Math.max(mainPlaybackPeak, mainAnalyserLevel);
+    const mainLiveLevel = (mainAnalyser && mainVol > 0.001)
+        ? mainAnalyserLevel
+        : mainPlaybackPeak;
     mainPlaybackPeak *= 0.9;
     if (mainVol <= 0.001) {
         mainPlaybackPeak = 0;
     }
 
-    const monitorLiveLevel = getMonitorLiveLevel();
+    const { peak: monitorBusPeak, entry: monitorBusEntry } = readMonitorBusLevels();
+    const monitorLiveLevel = monitorBusPeak > 0 ? monitorBusPeak : getMonitorLiveLevel();
 
     if (mainVol > 0.001 && mainAnalyser) {
         readAnalyserLoudness(mainAnalyser, mainLoudnessTracker, mainLoudnessBuffer);
@@ -220,12 +383,13 @@ function tickMeters() {
         mainLoudnessTracker.momentary = Number.NEGATIVE_INFINITY;
         mainLoudnessTracker.shortTerm *= 0.85;
     }
-    if (monitorLiveLevel > 0.001 && monitorVol > 0.001) {
-        monitorLoudnessTracker.momentary = loudnessFromPeak(monitorLiveLevel);
-        monitorLoudnessTracker.shortTerm = Number.isFinite(monitorLoudnessTracker.shortTerm)
-            ? monitorLoudnessTracker.shortTerm * 0.85 + monitorLoudnessTracker.momentary * 0.15
-            : monitorLoudnessTracker.momentary;
-    } else {
+    if (monitorBusEntry && monitorVol > 0.001 && monitorBusPeak > 0.001) {
+        readAnalyserLoudness(
+            monitorBusEntry.analyser,
+            monitorBusEntry.loudnessTracker,
+            monitorBusEntry.loudnessBuffer
+        );
+    } else if (monitorLiveLevel <= 0.001 || monitorVol <= 0.001) {
         monitorLoudnessTracker.momentary = Number.NEGATIVE_INFINITY;
         monitorLoudnessTracker.shortTerm *= 0.98;
     }
@@ -233,7 +397,6 @@ function tickMeters() {
     const mainRawPeak = clampLevel(Math.max(mainTestLevel, mainLiveLevel));
     const monitorRawPeak = clampLevel(Math.max(monitorTestLevel, monitorLiveLevel));
     const mainPeak = mainVol <= 0.001 ? 0 : mainRawPeak;
-    const monitorPeak = monitorVol <= 0.001 ? 0 : monitorRawPeak;
 
     let mainLufsValue = mainLoudnessTracker.shortTerm;
     if (channels.main.testNodes) {
@@ -242,11 +405,20 @@ function tickMeters() {
         mainLufsValue = Number.NEGATIVE_INFINITY;
     }
 
-    let monitorLufsValue = monitorLoudnessTracker.shortTerm;
+    let monitorPeak = monitorVol <= 0.001 ? 0 : monitorRawPeak;
+    let monitorLufsValue = monitorBusEntry?.loudnessTracker?.shortTerm ?? monitorLoudnessTracker.shortTerm;
     if (channels.monitor.testNodes) {
         monitorLufsValue = loudnessFromPeak(monitorPeak);
     } else if (monitorLiveLevel <= 0.001 || monitorVol <= 0.001) {
         monitorLufsValue = Number.NEGATIVE_INFINITY;
+    }
+
+    // Mirrored live playback is the same program as main — use the main bus tap, not
+    // captureStream on the separate HTML5 monitor Howl (reads ~10 dB hot in Chromium).
+    if (mirroredMonitorPlaybackCount > 0 && mainVol > 0.001 && mainPeak > 0.001) {
+        const faderRatio = monitorVol / mainVol;
+        monitorPeak = clampLevel(mainPeak * faderRatio);
+        monitorLufsValue = mainLufsValue;
     }
 
     const levels = {
@@ -279,8 +451,8 @@ export function ensureMainOutputAnalyser() {
     try {
         const weighting = createKWeightingChain(Howler.ctx);
         mainAnalyser = Howler.ctx.createAnalyser();
-        mainAnalyser.fftSize = 2048;
-        mainAnalyser.smoothingTimeConstant = 0.5;
+        mainAnalyser.fftSize = OUTPUT_ANALYSER_FFT_SIZE;
+        mainAnalyser.smoothingTimeConstant = OUTPUT_ANALYSER_SMOOTHING;
         mainAnalyserData = new Uint8Array(mainAnalyser.fftSize);
         mainLoudnessBuffer = { current: new Float32Array(mainAnalyser.fftSize) };
         Howler.masterGain.disconnect();
@@ -412,6 +584,11 @@ export function registerMonitorLevelSource(sourceId, getLevel) {
 export function createHowlMonitorLevelSource(howl) {
     attachHowlOutputAnalyser(howl);
     return () => readHowlAnalyserLevel(howl);
+}
+
+export function createWaveSurferMonitorLevelSource(wavesurfer) {
+    attachWaveSurferOutputAnalyser(wavesurfer);
+    return () => readWaveSurferAnalyserLevel(wavesurfer);
 }
 
 export function refreshActiveTestToneVolumes() {

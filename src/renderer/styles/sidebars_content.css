@@ -222,13 +222,14 @@
 .sidebar-content .audio-output-vu-zones {
     position: absolute;
     inset: 0;
+    /* Gradient set at runtime via setupOutputMeterZoneGradients() (−48…0 dBFS zones). */
     background: linear-gradient(
         to right,
         #1faa59 0%,
-        #1faa59 62%,
-        #d4a017 62%,
-        #d4a017 84%,
-        #d64545 84%,
+        #1faa59 62.5%,
+        #d4a017 62.5%,
+        #d4a017 87.5%,
+        #d64545 87.5%,
         #d64545 100%
     );
 }

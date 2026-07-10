@@ -10,7 +10,8 @@ import {
 } from './audioOutputRouting.js';
 import {
     createHowlMonitorLevelSource,
-    registerMonitorLevelSource
+    registerMonitorLevelSource,
+    detachHowlOutputAnalyser
 } from './audioOutputDiagnostics.js';
 
 let activePreview = null;
@@ -38,6 +39,7 @@ function stopActivePreview() {
     }
     if (!activePreview) return;
     try {
+        detachHowlOutputAnalyser(activePreview.howl);
         activePreview.howl.stop();
         activePreview.howl.unload();
     } catch (_) {

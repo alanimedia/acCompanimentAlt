@@ -122,7 +122,25 @@ export function registerPreviewWaveSurfer(wavesurfer) {
     previewWaveSurfers.add(wavesurfer);
     applySinkIdToWaveSurfer(wavesurfer, monitorOutputDeviceId);
     bindPreviewWaveSurferVolume(wavesurfer, wavesurfer._acBaseVolume ?? 1);
-    return () => previewWaveSurfers.delete(wavesurfer);
+
+    let unregisterMeter = null;
+    let meterDisposed = false;
+    const meterSourceId = `preview-wavesurfer-${previewWaveSurfers.size}`;
+    import('./audioOutputDiagnostics.js').then((diag) => {
+        if (meterDisposed) return;
+        unregisterMeter = diag.registerMonitorLevelSource(
+            meterSourceId,
+            diag.createWaveSurferMonitorLevelSource(wavesurfer)
+        );
+    }).catch((error) => {
+        console.warn('audioOutputRouting: Failed to register preview WaveSurfer meter:', error);
+    });
+
+    return () => {
+        meterDisposed = true;
+        if (unregisterMeter) unregisterMeter();
+        previewWaveSurfers.delete(wavesurfer);
+    };
 }
 
 export function bindPreviewWaveSurferOnReady(wavesurfer) {

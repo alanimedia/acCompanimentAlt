@@ -10,8 +10,8 @@ import {
     applyMonitorVolumeMultiplier
 } from './audioOutputRouting.js';
 import {
-    createHowlMonitorLevelSource,
-    registerMonitorLevelSource
+    registerMirroredMonitorPlayback,
+    detachHowlOutputAnalyser
 } from './audioOutputDiagnostics.js';
 
 const monitorLevelUnregisters = new WeakMap();
@@ -29,11 +29,7 @@ function trackMonitorLevel(playingState, howl) {
         ? howl._acBaseVolume
         : (typeof howl.volume === 'function' ? howl.volume() : 1);
     monitorHowlUnregisters.set(playingState, registerMonitorHowl(howl, baseVolume));
-    const unregister = registerMonitorLevelSource(
-        `monitor-mirror-${playingState?.cue?.id || Math.random()}`,
-        createHowlMonitorLevelSource(howl)
-    );
-    monitorLevelUnregisters.set(playingState, unregister);
+    monitorLevelUnregisters.set(playingState, registerMirroredMonitorPlayback());
 }
 
 function clearMonitorLevel(playingState) {
@@ -53,6 +49,9 @@ export function disposeMonitorSound(playingState) {
     }
     clearMonitorLevel(playingState);
     try {
+        if (playingState.monitorSound) {
+            detachHowlOutputAnalyser(playingState.monitorSound);
+        }
         playingState.monitorSound.stop();
         playingState.monitorSound.unload();
     } catch (_) {
