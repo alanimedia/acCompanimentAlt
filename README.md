@@ -30,16 +30,16 @@ When the module is listed on the [Connections](https://bitfocus.io/connections) 
 
 Until Bitfocus approves the store listing, install the packaged module manually (below).
 
-### Manual module install — Companion 4.x (recommended)
+### Manual module install — Companion 4.x or greater (recommended)
 
-No developer mode or Node.js required on the Companion machine.
+Requires **Companion 4.x.x or greater**. No developer mode or Node.js required.
 
 1. Download the packaged module:  
-   **[alanimedia-avcueboard-1.10.0.tgz](https://github.com/alanimedia/avcueboard-companion-module/raw/main/packages/alanimedia-avcueboard-1.10.0.tgz)**  
-   (also listed on the [companion module repo](https://github.com/alanimedia/avcueboard-companion-module))
-2. Open Companion Admin → **Modules**.
-3. **Import / Install custom module** and select the `.tgz`.
-4. **Connections** → add **Alani Media → AVCueboard**.
+   https://github.com/alanimedia/avcueboard-companion-module/raw/main/packages/alanimedia-avcueboard-1.10.0.tgz
+2. Launch Companion and open the Admin UI.
+3. Go to **Modules → Add Module Package** and select the downloaded `.tgz` file.  
+   This adds **Alani Media → AVCueboard** to the list of available modules.
+4. Go to **Connections** → add **Alani Media → AVCueboard**.
 5. Host: IP of the AV Cueboard PC (`127.0.0.1` if same machine). Port: **8877**.
 
 ### Manual module install — developer path (optional)
