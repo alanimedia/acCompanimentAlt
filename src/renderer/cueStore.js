@@ -123,6 +123,9 @@ function _handleCuesUpdated(updatedPayload) {
                     if (typeof cueGridAPI.applyCueBadgeState === 'function') {
                         cueGridAPI.applyCueBadgeState(id);
                     }
+                    if (typeof window.__refreshEditCardIndicators === 'function') {
+                        window.__refreshEditCardIndicators(id);
+                    }
                 });
                 uiLog.debug('CueStore (_handleCuesUpdated): Refreshed active cue cards in place (properties open)');
             } else {

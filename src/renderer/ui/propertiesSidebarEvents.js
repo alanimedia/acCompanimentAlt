@@ -50,7 +50,9 @@ function bindPropertiesSidebarEventListeners(hidePropertiesSidebar, handleDelete
     console.log('  debouncedSaveCueProperties (at bind start):', typeof debouncedSaveCueProperties);
 
     if (domElements.closePropertiesSidebarBtn) {
-        domElements.closePropertiesSidebarBtn.addEventListener('click', hidePropertiesSidebar);
+        domElements.closePropertiesSidebarBtn.addEventListener('click', () => {
+            hidePropertiesSidebar();
+        });
     }
     if (domElements.saveCuePropertiesButton) {
         domElements.saveCuePropertiesButton.style.display = 'none';

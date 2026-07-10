@@ -867,6 +867,7 @@ function setupExpandedWaveformRegionsAfterReady(resolveRegionsCallback) {
         
         if (expandedRegions) {
             console.log('WaveformExpanded: Expanded regions plugin resolved');
+            setupExpandedRegionPersistHandlers(expandedRegions);
             
             // Copy regions from main waveform if they exist
             if (wsRegions) {
@@ -897,6 +898,23 @@ function setupExpandedWaveformRegionsAfterReady(resolveRegionsCallback) {
     }
 }
 
+let expandedRegionHandlersBound = false;
+
+function setupExpandedRegionPersistHandlers(expandedRegions) {
+    if (!expandedRegions) return;
+
+    const persistTrimRegion = (region) => {
+        if (!region || region.id !== 'trimRegion') return;
+        syncRegionToMain(region);
+    };
+
+    if (!expandedRegionHandlersBound) {
+        expandedRegions.on('region-updated', persistTrimRegion);
+        expandedRegions.on('region-update-end', persistTrimRegion);
+        expandedRegionHandlersBound = true;
+    }
+}
+
 /**
  * Sync regions from main waveform to expanded waveform
  */
@@ -916,6 +934,8 @@ function syncRegionsFromMain() {
             console.warn('WaveformExpanded: No expanded regions plugin available');
             return;
         }
+
+        setupExpandedRegionPersistHandlers(expandedRegions);
         
         // Clear existing regions in expanded waveform
         const existingRegions = expandedRegions.getRegions();
@@ -1476,6 +1496,7 @@ function cleanupExpandedWaveform() {
     // Reset state
     currentExpandedCue = null;
     expandedWaveformCanvas = null;
+    expandedRegionHandlersBound = false;
     
     console.log('WaveformExpanded: Expanded waveform cleanup completed');
 }

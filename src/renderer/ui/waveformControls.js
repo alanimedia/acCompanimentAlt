@@ -7,7 +7,7 @@ import * as WaveformRegions from './waveformRegions.js';
 import * as WaveformTrimControls from './waveformTrimControls.js';
 import * as WaveformBottomPanel from './waveformBottomPanel.js';
 import * as WaveformExpanded from './waveformExpanded.js';
-import { getTrimDisplayTimes } from './waveformTrimTimeUtils.js';
+import { getTrimDisplayTimes, trimTimesForPersist } from './waveformTrimTimeUtils.js';
 import { bindPreviewWaveSurferOnReady } from '../audioOutputRouting.js';
 
 // Dependencies from other modules (will be set in init)
@@ -209,7 +209,15 @@ function showWaveformForCue(cue) {
  * Public interface to destroy the waveform.
  */
 function hideAndDestroyWaveform() {
-    WaveformCore.hideAndDestroyWaveform();
+    WaveformRegions.setDestroyingFlag(true);
+    try {
+        if (WaveformExpanded.hasExpandedWaveform()) {
+            WaveformExpanded.cleanupExpandedWaveform();
+        }
+        WaveformCore.hideAndDestroyWaveform();
+    } finally {
+        WaveformRegions.setDestroyingFlag(false);
+    }
 }
 
 /**
@@ -879,6 +887,18 @@ function collapseBottomPanel() {
                             }
                         }
                     });
+                }
+
+                const trimTimes = WaveformRegions.getCurrentTrimTimes();
+                const mainInstance = WaveformCore.getWavesurferInstance();
+                const duration = mainInstance?.getDuration?.() || expandedInstance?.getDuration?.() || 0;
+                if (trimTimes && typeof onTrimChangeCallback === 'function' && duration > 0) {
+                    const { trimStartTime, trimEndTime } = trimTimesForPersist(
+                        trimTimes.trimStartTime,
+                        trimTimes.trimEndTime,
+                        duration
+                    );
+                    onTrimChangeCallback(trimStartTime, trimEndTime);
                 }
             } catch (error) {
                 console.error('WaveformControls: Error syncing regions back to main:', error);

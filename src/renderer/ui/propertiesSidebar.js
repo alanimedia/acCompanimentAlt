@@ -349,6 +349,38 @@ function openPropertiesSidebar(cue) {
 }
 
 function hidePropertiesSidebar() {
+    void flushAndClosePropertiesSidebar();
+}
+
+async function flushAndClosePropertiesSidebar() {
+    const cueIds = activePropertiesCueIds.length > 0
+        ? [...activePropertiesCueIds]
+        : (activePropertiesCueId ? [activePropertiesCueId] : []);
+
+    cancelPendingPropertiesSave();
+
+    if (cueIds.length > 0) {
+        try {
+            if (typeof waveformControls.getBottomPanelState === 'function'
+                && waveformControls.getBottomPanelState()) {
+                waveformControls.collapseBottomPanel();
+            }
+
+            const trimTimes = waveformControls.getCurrentTrimTimes?.();
+            if (trimTimes) {
+                setCurrentWaveformTrim(trimTimes.trimStartTime, trimTimes.trimEndTime);
+                window._waveformTrimUpdateInProgress = true;
+                await handleSaveCueProperties();
+            }
+        } catch (error) {
+            console.error('[PropertiesSidebar] Error flushing trim before close:', error);
+        } finally {
+            setTimeout(() => {
+                window._waveformTrimUpdateInProgress = false;
+            }, 300);
+        }
+    }
+
     hideSidebar();
     activePropertiesCueId = null;
     activePropertiesCueIds = [];
@@ -357,6 +389,13 @@ function hidePropertiesSidebar() {
     setStagedPlaylistItems([]);
     waveformControls.hideAndDestroyWaveform();
     uiCore?.clearMainWaveformPreview?.();
+
+    if (cueIds.length > 0 && typeof window.__refreshCueCardAppearance === 'function') {
+        cueIds.forEach((cueId) => window.__refreshCueCardAppearance(cueId));
+    }
+    if (cueIds.length > 0 && typeof window.__refreshEditCardIndicators === 'function') {
+        cueIds.forEach((cueId) => window.__refreshEditCardIndicators(cueId));
+    }
 }
 
 function isPropertiesSidebarOpen() {
@@ -592,6 +631,9 @@ function handleCuePropertyChangeFromWaveform(trimStart, trimEnd) {
             flashTrimBadgeForCue(activePropertiesCueId);
             if (typeof window.__refreshEditCardIndicators === 'function') {
                 window.__refreshEditCardIndicators(activePropertiesCueId);
+            }
+            if (typeof window.__refreshCueCardAppearance === 'function') {
+                window.__refreshCueCardAppearance(activePropertiesCueId);
             }
         } else {
             showWaveformTrimStatus();

@@ -29,7 +29,7 @@ let cueStore;
 let audioController;
 let uiCore;
 let currentWaveformTrimStart = 0;
-let currentWaveformTrimEnd = 0;
+let currentWaveformTrimEnd = undefined;
 
 /**
  * Initialize form manager
@@ -93,9 +93,13 @@ function collectFormData(activePropertiesCueId, domElements, stagedPlaylistItems
         id: activePropertiesCueId,
         name: cueName,
         type: domElements.propCueTypeSelect ? domElements.propCueTypeSelect.value : existingCue.type,
-        filePath: (domElements.propCueTypeSelect && domElements.propCueTypeSelect.value !== 'playlist' && domElements.propFilePathInput) 
-            ? domElements.propFilePathInput.value 
-            : existingCue.filePath,
+        filePath: (() => {
+            if (domElements.propCueTypeSelect?.value === 'playlist') {
+                return existingCue.filePath;
+            }
+            const fromInput = domElements.propFilePathInput?.value?.trim();
+            return fromInput || existingCue.filePath;
+        })(),
         playlistItems: (domElements.propCueTypeSelect && domElements.propCueTypeSelect.value === 'playlist') 
             ? stagedPlaylistItems 
             : existingCue.playlistItems,

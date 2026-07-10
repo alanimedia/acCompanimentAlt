@@ -443,7 +443,7 @@ function styleRegions(wavesurferInstance, regionsInstance = wsRegions) {
  */
 function updateTrimInputsFromRegion(region, wavesurferInstance) {
     if (!region || region.id !== 'trimRegion') {
-        if (typeof onTrimChangeCallback === 'function') {
+        if (!isDestroyingWaveform && typeof onTrimChangeCallback === 'function') {
             onTrimChangeCallback(0, undefined);
         }
         return;
