@@ -243,13 +243,12 @@ Open the URL from **Settings → Remote Control → Access links** (default port
 ## Bitfocus Companion
 
 1. Run AV Cueboard with WebSocket enabled (default **8877**).
-2. In Companion, add **Alani Media → AVCueboard** (module `alanimedia-avcueboard`).
-3. Set host IP and WebSocket port.
-4. Use per-cue **Trigger** actions (stable cue IDs) for reliable targeting.
+2. Install the Companion module (from the Connections store when available, or [manually](README.md#manual-module-install-until-store-approval) until then).
+3. In Companion, add **Alani Media → AVCueboard**.
+4. Set host IP and WebSocket port.
+5. Use per-cue **Trigger** actions (stable cue IDs) for reliable targeting.
 
-See the [Companion module HELP](https://github.com/bitfocus/companion-module-alanimedia-avcueboard/blob/main/companion/HELP.md).
-
-> If you used the legacy **HighPass → acCompaniment** module, remove it and add **AVCueboard** as a new connection.
+Module source: [alanimedia/avcueboard-companion-module](https://github.com/alanimedia/avcueboard-companion-module)
 
 ---
 
@@ -261,15 +260,6 @@ See the [Companion module HELP](https://github.com/bitfocus/companion-module-ala
 | **Check for Updates…** | Windows packaged builds: opt-in download/install (each step confirmed) |
 | **User Guide** | Opens this document on GitHub |
 | **Learn More** | [alani.media](https://alani.media) |
-
----
-
-## Upgrading from acCompaniment 1.9.x
-
-1. Install **AV Cueboard 1.10.0** over your existing install.
-2. On first launch, settings copy from `%APPDATA%\acCompaniment` (or macOS/Linux equivalent) if the new folder is empty.
-3. Rebrand uses a new `appId` — you may see a separate **AV Cueboard** userData folder; migration handles the copy.
-4. In Companion, add a fresh **Alani Media → AVCueboard** connection.
 
 ---
 
@@ -285,3 +275,11 @@ See the [Companion module HELP](https://github.com/bitfocus/companion-module-ala
 
 - [GitHub Issues](https://github.com/alanimedia/avcueboard/issues) — bugs and feature requests
 - Include OS version, steps to reproduce, and screenshots if possible
+
+---
+
+## License & credits
+
+MIT License — [LICENSE](LICENSE) · [NOTICE](NOTICE).
+
+Based on **[acCompaniment](https://github.com/mko1989/acCompaniment)** by **Marcin Wardecki** ([mko1989](https://github.com/mko1989)). Original work © Marcin Wardecki. Modifications © Omar Gadahn, Alani Media.
