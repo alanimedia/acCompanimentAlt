@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.10.1
+
+### Changed
+- Trim in/out controls use **{** / **}** glyphs (matching cue trim badges) in Cue Properties and the expanded Waveform Editor
+
+### Fixed
+- Waveform mouse gestures: **wheel** zooms, **Shift+wheel** / tilt pans, **Ctrl/Cmd+wheel** scrubs; side-wheel no longer zooms
+- Same pointer controls apply in Cue Properties and the expanded editor; tips and HELP updated to match
+
 ## 1.10.0 — AV Cueboard v1
 
 ### Added

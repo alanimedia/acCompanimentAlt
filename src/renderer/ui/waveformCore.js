@@ -7,6 +7,12 @@
 
 import { getTrimDisplayTimes, isWaveformRegionTarget } from './waveformTrimTimeUtils.js';
 import { bindPreviewWaveSurferOnReady } from '../audioOutputRouting.js';
+import {
+    attachWaveformWheelControls,
+    panWaveform,
+    scrubWaveform,
+    WAVEFORM_POINTER_TIPS
+} from './waveformPointerControls.js';
 
 // Module-level variables for WaveSurfer instance and related state
 let wavesurferInstance = null;
@@ -39,6 +45,8 @@ let onExpandWaveformCallback = null;
 let getTrimTimesFn = null;
 let isUserSeekingPlayback = false;
 let userSeekingClearTimeout = null;
+let activePreviewCueId = null;
+let detachPreviewWheel = null;
 
 // Waveform initialization with debouncing
 let waveformInitTimeout = null;
@@ -258,52 +266,57 @@ function bindCoreWaveformEvents(getTrimTimesCallback, onExpandCallback) {
         console.log('WaveformCore: wfSoloBtn not found - solo functionality not implemented');
     }
     
-    // Add zoom functionality with mouse wheel
+    // Mouse wheel: zoom / Shift+pan / Ctrl+scrub (same as expanded editor)
     if (waveformDisplayDiv) {
-        waveformDisplayDiv.addEventListener('wheel', (e) => {
-            if (wavesurferInstance) {
-                e.preventDefault(); // Prevent page scrolling
-                
-                // Calculate new zoom level based on wheel direction
-                const direction = e.deltaY < 0 ? 1 : -1; // 1 = zoom in, -1 = zoom out
-                
-                // Variable zoom step based on current zoom level
-                let zoomStep;
-                if (zoomLevel < 10) {
-                    // Very fine steps at the beginning (1 unit per step)
-                    zoomStep = 1 * direction;
-                } else {
-                    // Larger steps at higher zoom levels (5 units per step)
-                    zoomStep = 5 * direction;
-                }
-                
-                // Update the zoom level
-                zoomLevel += zoomStep;
-                
-                // Constrain zoom level between min and max values
-                zoomLevel = Math.min(Math.max(zoomLevel, minZoom), maxZoom);
-                
-                // Apply the zoom directly - wavesurfer zoom value = our zoom level
-                console.log(`WaveformCore: Setting zoom to level ${zoomLevel}`);
+        if (typeof detachPreviewWheel === 'function') {
+            detachPreviewWheel();
+            detachPreviewWheel = null;
+        }
+
+        const applyPreviewZoom = (direction) => {
+            if (!wavesurferInstance?.zoom) return;
+            let zoomStep;
+            if (zoomLevel < 10) {
+                zoomStep = 1 * direction;
+            } else {
+                zoomStep = 5 * direction;
+            }
+            zoomLevel += zoomStep;
+            zoomLevel = Math.min(Math.max(zoomLevel, minZoom), maxZoom);
+            if (zoomLevel <= minZoom) {
+                resetZoom();
+            } else {
                 wavesurferInstance.zoom(zoomLevel);
-                
-                console.log(`WaveformCore: Zoom changed to ${zoomLevel.toFixed(2)}`);
-                
-                // If zoomed all the way to minimum, reset to default zoom
-                if (zoomLevel <= minZoom) {
-                    resetZoom();
+            }
+        };
+
+        detachPreviewWheel = attachWaveformWheelControls(waveformDisplayDiv, {
+            getInstance: () => wavesurferInstance,
+            onZoom: (direction) => applyPreviewZoom(direction),
+            onPan: (deltaPx) => panWaveform(wavesurferInstance, deltaPx),
+            onScrub: (delta) => {
+                if (!wavesurferInstance) return;
+                const next = scrubWaveform(wavesurferInstance, delta);
+                if (next == null) return;
+                syncPlaybackTimeWithUI(next);
+                if (activePreviewCueId && typeof onSeekPlaybackCallback === 'function') {
+                    onSeekPlaybackCallback(activePreviewCueId, next, {
+                        finalizeScrub: true,
+                        skipScrubMute: true
+                    });
                 }
             }
         });
-        
+
         // Double-click to reset zoom
         waveformDisplayDiv.addEventListener('dblclick', (e) => {
-            if (wavesurferInstance) {
-                resetZoom();
-            }
+            if (!wavesurferInstance) return;
+            if (isWaveformRegionTarget(e.target)) return;
+            resetZoom();
         });
-        
-        console.log('WaveformCore: Zoom event listeners bound');
+
+        waveformDisplayDiv.title = WAVEFORM_POINTER_TIPS.propertiesTitle;
+        console.log('WaveformCore: Pointer wheel controls bound');
     } else {
         console.warn('WaveformCore: waveformDisplayDiv not found, cannot bind zoom events');
     }
@@ -475,6 +488,8 @@ function setupCoreWaveformEvents(cue, regionsPlugin, setupRegionEventsCallback, 
         console.error('WaveformCore: Cannot setup events - no wavesurferInstance');
         return;
     }
+
+    activePreviewCueId = cue?.id || null;
     
     console.log('WaveformCore: Setting up core waveform events');
     
@@ -561,7 +576,7 @@ function setupCoreWaveformEvents(cue, regionsPlugin, setupRegionEventsCallback, 
         const MOVE_THRESHOLD_PX = 5;
         waveformDisplayDiv.style.touchAction = 'none';
         waveformDisplayDiv.style.cursor = 'pointer';
-        waveformDisplayDiv.title = 'Click to expand editor; drag to seek; drag edge handles for in/out';
+        waveformDisplayDiv.title = WAVEFORM_POINTER_TIPS.propertiesTitle;
 
         const seekAtClientX = (clientX, options = {}) => {
             if (!wavesurferInstance || !cue?.id) return;
@@ -588,6 +603,7 @@ function setupCoreWaveformEvents(cue, regionsPlugin, setupRegionEventsCallback, 
 
         waveformDisplayDiv.addEventListener('pointerdown', (event) => {
             if (activePointerId != null) return;
+            if (event.button !== 0) return; // left button only — ignore wheel / side clicks
             if (isWaveformRegionTarget(event.target)) return;
             event.preventDefault();
             activePointerId = event.pointerId;
@@ -791,6 +807,7 @@ function destroyWaveform() {
     currentAudioFilePath = null;
     playStartPosition = 0;
     waveformIsStoppedAtTrimStart = false;
+    activePreviewCueId = null;
     
     console.log('WaveformCore: Waveform destroyed and state reset');
 }

@@ -2,7 +2,7 @@
 
 Live audio cue software for **Bitfocus Companion** and **Elgato Stream Deck**.
 
-> **AV Cueboard v1.10.0** · [Releases](https://github.com/alanimedia/avcueboard/releases) · [Companion module](https://github.com/bitfocus/companion-module-alanimedia-avcueboard)
+> **AV Cueboard v1.10.1** · [Releases](https://github.com/alanimedia/avcueboard/releases) · [Companion module](https://github.com/bitfocus/companion-module-alanimedia-avcueboard)
 
 ---
 
@@ -106,9 +106,15 @@ Select multiple cues to edit shared fields: **button color**, **loop**, **retrig
 
 ### Waveform trim
 
-- Drag region handles or use skip-start / skip-end buttons
-- Trim saves automatically; **MISSING** trim badges show when trim is active
+- Drag region handles or use the **{** / **}** in/out buttons
+- Trim saves automatically; **{ }** trim badges show when trim is active
 - **Expanded waveform editor** (bottom panel) for precise edits
+- Mouse on the waveform (Cue Properties and expanded editor):
+  - **Wheel** — zoom in/out
+  - **Shift+wheel** or **tilt wheel** — pan left/right when zoomed
+  - **Ctrl/Cmd+wheel** — scrub the playhead
+  - **Double-click** — reset zoom
+  - **Drag** — seek; drag edge handles for in/out
 - During **playback**, drag the waveform playhead to **seek**; volume slider adjusts **live level**
 
 ---

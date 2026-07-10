@@ -422,9 +422,6 @@ function moveWaveformToExpandedView(audioFilePath, currentTime, wasPlaying, trim
     // Set up expanded waveform control buttons
     setupExpandedWaveformControls(expandedInstance);
     
-    // Set up zoom for expanded waveform
-    setupExpandedZoom(expandedInstance, container);
-    
     console.log('WaveformControls: Waveform moved to expanded view');
 }
 
@@ -531,52 +528,6 @@ function updateExpandedTimeDisplays(currentTimeEl, totalDurationEl, remainingTim
     if (remainingTimeEl) {
         remainingTimeEl.textContent = WaveformCore.formatWaveformTime(remaining);
     }
-}
-
-/**
- * Set up zoom for the expanded waveform
- * @param {object} wavesurferInstance - The WaveSurfer instance
- * @param {HTMLElement} container - The waveform container
- */
-function setupExpandedZoom(wavesurferInstance, container) {
-    let zoomLevel = 0; // Start at minimum zoom
-    const maxZoom = 1000;
-    const minZoom = 0;
-    
-    // Mouse wheel zoom
-    container.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        
-        const direction = e.deltaY < 0 ? 1 : -1;
-        let zoomStep;
-        
-        if (zoomLevel < 10) {
-            zoomStep = 1 * direction;
-        } else {
-            zoomStep = 5 * direction;
-        }
-        
-        zoomLevel += zoomStep;
-        zoomLevel = Math.min(Math.max(zoomLevel, minZoom), maxZoom);
-        
-        wavesurferInstance.zoom(zoomLevel);
-        
-        console.log(`WaveformControls: Expanded zoom changed to ${zoomLevel}`);
-        
-        if (zoomLevel <= minZoom) {
-            zoomLevel = 0;
-            wavesurferInstance.zoom(0);
-        }
-    }, { passive: false });
-    
-    // Double-click to reset zoom
-    container.addEventListener('dblclick', () => {
-        zoomLevel = 0;
-        wavesurferInstance.zoom(0);
-        console.log('WaveformControls: Expanded zoom reset to default');
-    });
-    
-    console.log('WaveformControls: Expanded zoom setup completed');
 }
 
 /**
@@ -777,10 +728,13 @@ function expandBottomPanel() {
                     // Re-initialize zoom module with updated dependencies
                     WaveformZoom.initZoomModule({
                         expandedWaveformDisplay: expandedDisplay,
-                        expandedWaveformInstance: expandedInstance
+                        expandedWaveformInstance: expandedInstance,
+                        onExpandedScrub: () => {
+                            WaveformExpanded.updateExpandedTimeDisplay();
+                        }
                     });
                     
-                    // Set up zoom for expanded waveform
+                    // Set up zoom / pan / scrub for expanded waveform
                     WaveformZoom.setupExpandedWaveformZoom();
                     WaveformZoom.setupExpandedZoomAfterReady();
                 }

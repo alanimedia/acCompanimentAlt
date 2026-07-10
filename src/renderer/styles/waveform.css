@@ -135,6 +135,20 @@
     background-color: #5a5a5a;
 }
 
+.wf-trim-brace-btn {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.15rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #fcd34d;
+    letter-spacing: 0;
+    padding: 0;
+}
+
+.wf-trim-brace-btn:hover {
+    color: #fde68a;
+}
+
 .btn-icon-wf {
     width: 20px;
     height: 20px;
@@ -245,6 +259,18 @@
 
 .expanded-wf-control-btn:hover {
     background-color: #5a5a5a;
+}
+
+.expanded-wf-control-btn.wf-trim-brace-btn {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.2rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #fcd34d;
+}
+
+.expanded-wf-control-btn.wf-trim-brace-btn:hover {
+    color: #fde68a;
 }
 
 .expanded-wf-control-btn.play-pause {
