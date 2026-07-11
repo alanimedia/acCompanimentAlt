@@ -93,28 +93,30 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           REPO="${GH_REPO}"
 
-          # No checkout in this job — always pass -R so gh knows the repo.
-          # Retry briefly: matrix publish can lag a few seconds after the last build.
+          # IMPORTANT: `gh release view --json` does NOT support `isLatest`
+          # (that field is only on `gh release list`). Requesting it makes
+          # every lookup fail even when the release exists.
           RELEASE_JSON=""
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            if RELEASE_JSON=$(gh release view "$TAG" -R "$REPO" --json id,isDraft,isLatest,assets 2>/dev/null); then
+            if RELEASE_JSON=$(gh release view "$TAG" -R "$REPO" --json id,isDraft,assets 2> /tmp/gh-release-err.txt); then
               echo "Found release $TAG on attempt $attempt"
               break
             fi
-            echo "Attempt $attempt: release $TAG not visible yet, waiting..."
+            echo "Attempt $attempt: release $TAG not visible yet:"
+            cat /tmp/gh-release-err.txt || true
             sleep 6
           done
 
           if [ -z "$RELEASE_JSON" ]; then
             echo "No GitHub release found for $TAG after electron-builder publish."
-            echo "Check that build jobs uploaded assets with --publish always."
+            echo "Last gh error:"
+            cat /tmp/gh-release-err.txt || true
             exit 1
           fi
 
           DRAFT=$(printf '%s' "$RELEASE_JSON" | jq -r .isDraft)
           echo "Release $TAG isDraft=$DRAFT"
 
-          # Only undraft when needed — editing an already-public release can fail.
           if [ "$DRAFT" = "true" ]; then
             gh release edit "$TAG" -R "$REPO" --draft=false --prerelease=false
           fi
@@ -128,8 +130,6 @@ jobs:
             exit 1
           fi
 
-          # Prefer at least one electron-updater channel file; warn but don't fail hard
-          # if naming differs (Windows now uses manual GitHub download anyway).
           if ! gh release view "$TAG" -R "$REPO" --json assets --jq '.assets[].name' \
             | grep -E '^latest(-mac|-linux(-arm64)?)?\.yml$' >/dev/null; then
             echo "Warning: expected latest*.yml updater metadata missing (non-fatal)."
