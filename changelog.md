@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.10.2
+
+### Changed
+- **Help → Check for Updates…** on Windows now matches macOS: download the Setup `.exe` from GitHub Releases and run it (in-app `electron-updater` install disabled until builds are code-signed)
+
+### Fixed
+- Release workflow publish job: pass `-R` / `GH_REPO` so `gh` can find the tag release (stops false “No GitHub release found” failures after a successful publish)
+
 ## 1.10.1
 
 ### Changed

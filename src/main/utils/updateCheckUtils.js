@@ -33,7 +33,7 @@ function pickReleaseDownloadAsset(release) {
 
     const platform = process.platform;
     const preferredPatterns = platform === 'win32'
-        ? [/\.exe$/i, /\.msi$/i, /setup.*win/i]
+        ? [/Setup.*\.exe$/i, /\.exe$/i, /\.msi$/i]
         : platform === 'darwin'
             ? [/\.dmg$/i, /\.pkg$/i, /mac/i]
             : [/\.AppImage$/i, /\.deb$/i, /linux/i];
@@ -138,7 +138,10 @@ async function showUpdateCheckDialog(mainWindow) {
             detail: [
                 `You are on ${updateInfo.currentVersion}.`,
                 updateInfo.downloadName ? `Installer: ${updateInfo.downloadName}` : '',
-                'Download the installer from GitHub Releases, then run it to update.'
+                'Download the installer from GitHub Releases, then run it to update.',
+                process.platform === 'win32'
+                    ? 'Windows builds are not code-signed yet, so in-app install is unavailable — run the downloaded Setup .exe.'
+                    : ''
             ].filter(Boolean).join('\n'),
             buttons,
             defaultId,

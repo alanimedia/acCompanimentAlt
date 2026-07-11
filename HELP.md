@@ -2,7 +2,7 @@
 
 Live audio cue software for **Bitfocus Companion** and **Elgato Stream Deck**.
 
-> **AV Cueboard v1.10.1** · [Releases](https://github.com/alanimedia/avcueboard/releases) · [Companion module](https://github.com/bitfocus/companion-module-alanimedia-avcueboard)
+> **AV Cueboard v1.10.2** · [Releases](https://github.com/alanimedia/avcueboard/releases) · [Companion module](https://github.com/bitfocus/companion-module-alanimedia-avcueboard)
 
 ---
 
@@ -266,7 +266,7 @@ Module source: [alanimedia/avcueboard-companion-module](https://github.com/alani
 | Item | Description |
 |------|-------------|
 | **Version** | Current app version |
-| **Check for Updates…** | Windows packaged builds: opt-in download/install (each step confirmed) |
+| **Check for Updates…** | Opens the latest GitHub release / installer download (run the installer to update; Windows is not code-signed yet so in-app install is disabled) |
 | **User Guide** | Opens this document on GitHub |
 | **Learn More** | [alani.media](https://alani.media) |
 
